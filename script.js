@@ -40,10 +40,15 @@ class RandomRadar {
             'https://cors.bridged.cc/',
             'https://thingproxy.freeboard.io/fetch/',
             'https://api.codetabs.com/v1/proxy?quest=',
-            'https://yacdn.org/proxy/'
+            'https://yacdn.org/proxy/',
+            'https://cors.iamnd.net/proxy/',
+            'https://crossorigin.me/',
+            'https://jsonp.afeld.me/?url='
         ];
         this.currentProxyIndex = 0;
         this.proxyFailures = new Map(); // Track proxy failures
+        this.foundQuotes = new Set(); // Track unique quotes to avoid duplicates
+        this.processedDomains = new Set(); // Track domains we've already found quotes from
     }
 
     async startCrawling() {
@@ -74,37 +79,132 @@ class RandomRadar {
     }
 
     async discoverNewDomains() {
-        this.updateStatus('Discovering new domains...');
+        this.updateStatus('Discovering domains from various sources...');
         this.currentSources = []; // Clear previous sources
         
-        // Run all discovery methods concurrently for better performance
+        // Since real-time new domain discovery is limited by CORS and API restrictions,
+        // we'll use a hybrid approach that combines:
+        // 1. Some reliable sources that work
+        // 2. Trending/generated domains
+        // 3. Curated list of interesting sites
+        
         const discoveryPromises = [
-            this.getCertificateTransparencyDomains(),
-            this.getRecentlyRegisteredDomains(),
-            this.generateRandomDomains()
+            this.getReliableContentSources(),
+            this.getTrendingDomains(),
+            this.getGeneratedDomains(),
+            this.tryRealNewDomains() // This will attempt real new domains but may fail
         ];
         
-        // Wait for all methods to complete (with timeout)
+        // Wait for all methods to complete
         try {
             await Promise.allSettled(discoveryPromises);
         } catch (error) {
             console.warn('Some discovery methods failed:', error);
         }
         
-        // Remove duplicates and ensure we have at least 10 domains
+        // Remove duplicates and ensure we have domains
         this.currentSources = [...new Set(this.currentSources)];
         
-        // If we don't have enough domains, add some more generated ones
+        // If we don't have enough domains, add more reliable ones
         if (this.currentSources.length < 10) {
-            this.generateRandomDomains();
+            this.currentSources.push(...this.getBackupDomains());
             this.currentSources = [...new Set(this.currentSources)];
         }
         
-        // Limit to 25 domains to prevent overwhelming the system
-        this.currentSources = this.currentSources.slice(0, 25);
+        // Shuffle for variety
+        this.currentSources = this.currentSources.sort(() => 0.5 - Math.random());
         
-        this.updateStatus(`Found ${this.currentSources.length} potential new domains to explore`);
+        // Limit to prevent overwhelming
+        this.currentSources = this.currentSources.slice(0, 30);
+        
+        this.updateStatus(`Found ${this.currentSources.length} domains to explore (mix of new and interesting sites)`);
         console.log('Domains to explore:', this.currentSources);
+    }
+
+    async getReliableContentSources() {
+        // These are sites that definitely have content and are accessible
+        const reliableSources = [
+            'quotes.toscrape.com',
+            'httpbin.org',
+            'jsonplaceholder.typicode.com',
+            'dummyjson.com',
+            'reqres.in',
+            'postman-echo.com',
+            'httpstat.us',
+            'randomuser.me',
+            'lorem-picsum.photos',
+            'api.github.com',
+            'dog.ceo',
+            'cat-fact.herokuapp.com',
+            'official-joke-api.appspot.com',
+            'icanhazdadjoke.com',
+            'uselessfacts.jsph.pl'
+        ];
+        
+        this.currentSources.push(...reliableSources);
+        console.log(`Added ${reliableSources.length} reliable content sources`);
+    }
+
+    async tryRealNewDomains() {
+        // This will attempt to get real new domains, but won't break if it fails
+        try {
+            // Try a simplified approach to get some real new domains
+            await this.getRealNewDomainsSimplified();
+        } catch (error) {
+            console.warn('Real new domain discovery failed (expected due to CORS limitations):', error);
+            // This is expected to fail often, so we don't treat it as a critical error
+        }
+    }
+
+    async getRealNewDomainsSimplified() {
+        // Try to get some real new domains using a more reliable method
+        try {
+            // Try Certificate Transparency with a simpler approach
+            const response = await this.fetchWithProxy('https://crt.sh/?q=%25&output=json&exclude=expired');
+            const data = JSON.parse(response);
+            
+            if (data && Array.isArray(data)) {
+                // Get recent certificates (last few days)
+                const recentDomains = data
+                    .filter(cert => {
+                        const issueDate = new Date(cert.not_before);
+                        const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+                        return issueDate > threeDaysAgo;
+                    })
+                    .map(cert => cert.name_value.split('\n')[0])
+                    .filter(domain => this.isValidNewDomain(domain))
+                    .slice(0, 10);
+                
+                this.currentSources.push(...recentDomains);
+                console.log(`Found ${recentDomains.length} potentially new domains from Certificate Transparency`);
+            }
+        } catch (error) {
+            console.warn('Certificate transparency failed:', error);
+        }
+    }
+
+    isValidNewDomain(domain) {
+        return domain && 
+               !domain.includes('*') && 
+               !domain.includes('localhost') &&
+               !domain.includes('test') &&
+               !domain.includes('staging') &&
+               !domain.includes('dev.') &&
+               !domain.includes('api.') &&
+               !domain.includes('cdn.') &&
+               !domain.includes('mail.') &&
+               !domain.includes('ns.') &&
+               !domain.includes('mx.') &&
+               !domain.includes('ftp.') &&
+               !domain.startsWith('www.') &&
+               domain.includes('.') &&
+               domain.length > 4 &&
+               domain.length < 50 &&
+               !domain.includes(' ') &&
+               (domain.endsWith('.com') || domain.endsWith('.org') || 
+                domain.endsWith('.net') || domain.endsWith('.io') || 
+                domain.endsWith('.ai') || domain.endsWith('.tech') ||
+                domain.endsWith('.dev') || domain.endsWith('.app'));
     }
 
     async getCertificateTransparencyDomains() {
@@ -361,99 +461,248 @@ class RandomRadar {
             console.log(`Generated ${validDomains.length} trending domains`);
         });
         
-        // Also generate some based on current patterns
-        const currentYear = new Date().getFullYear();
-        const currentMonth = new Date().getMonth() + 1;
-        const currentDay = new Date().getDate();
+        // Generate domains from different categories for diversity
+        const categories = this.getDiverseCategories();
         
-        // More realistic prefixes based on current trends
-        const prefixes = [
-            'ai', 'ml', 'tech', 'digital', 'smart', 'next', 'future', 'modern',
-            'innovative', 'creative', 'advanced', 'elite', 'pro', 'expert',
-            'global', 'universal', 'prime', 'supreme', 'ultimate', 'mega',
-            `${currentYear}`, `new${currentYear}`, `${currentMonth}${currentDay}`
+        categories.forEach(category => {
+            const categoryDomains = this.generateCategoryDomains(category);
+            this.currentSources.push(...categoryDomains);
+        });
+        
+        // Also add some well-known sites that might have interesting content
+        const knownSites = [
+            'quotegarden.com', 'brainyquote.com', 'goodreads.com',
+            'medium.com', 'dev.to', 'hackernoon.com', 'techcrunch.com',
+            'theverge.com', 'arstechnica.com', 'reddit.com', 'news.ycombinator.com',
+            'philosophynow.org', 'brainpickings.org', 'ted.com'
         ];
         
-        const words = [
-            'solutions', 'systems', 'platform', 'network', 'service', 'group',
-            'company', 'corporation', 'enterprise', 'business', 'agency',
-            'studio', 'lab', 'hub', 'center', 'institute', 'academy',
-            'marketplace', 'exchange', 'portal', 'gateway', 'bridge',
-            'cloud', 'data', 'analytics', 'insights', 'intelligence'
+        // Add a few random known sites for guaranteed content
+        const randomKnownSites = knownSites.sort(() => 0.5 - Math.random()).slice(0, 5);
+        this.currentSources.push(...randomKnownSites);
+        
+        console.log(`Generated ${this.currentSources.length} domains from various categories`);
+    }
+
+    getDiverseCategories() {
+        return [
+            {
+                name: 'Technology',
+                prefixes: ['tech', 'digital', 'cyber', 'smart', 'ai', 'ml', 'quantum', 'nano'],
+                suffixes: ['solutions', 'systems', 'platform', 'hub', 'lab', 'core', 'net', 'pro']
+            },
+            {
+                name: 'Creative',
+                prefixes: ['art', 'design', 'creative', 'pixel', 'studio', 'craft', 'vision', 'inspire'],
+                suffixes: ['works', 'studio', 'gallery', 'space', 'lab', 'house', 'collective', 'zone']
+            },
+            {
+                name: 'Business',
+                prefixes: ['biz', 'corp', 'enterprise', 'global', 'prime', 'elite', 'pro', 'expert'],
+                suffixes: ['solutions', 'services', 'group', 'ventures', 'consulting', 'agency', 'firm', 'partners']
+            },
+            {
+                name: 'Lifestyle',
+                prefixes: ['life', 'living', 'wellness', 'health', 'fit', 'zen', 'pure', 'fresh'],
+                suffixes: ['hub', 'center', 'zone', 'space', 'life', 'world', 'guide', 'tips']
+            },
+            {
+                name: 'Education',
+                prefixes: ['edu', 'learn', 'study', 'smart', 'brain', 'mind', 'know', 'wise'],
+                suffixes: ['academy', 'institute', 'university', 'college', 'school', 'campus', 'portal', 'hub']
+            },
+            {
+                name: 'News & Media',
+                prefixes: ['news', 'media', 'press', 'daily', 'times', 'post', 'herald', 'voice'],
+                suffixes: ['today', 'now', 'daily', 'times', 'post', 'news', 'report', 'wire']
+            }
         ];
+    }
+
+    generateCategoryDomains(category) {
+        const domains = [];
+        const tlds = ['.com', '.net', '.org', '.io', '.tech', '.dev', '.app', '.co', '.ai', '.me'];
         
-        const tlds = ['.com', '.net', '.org', '.io', '.tech', '.dev', '.app', '.co', '.ai'];
-        
-        // Generate more realistic domain combinations
-        for (let i = 0; i < 15; i++) {
-            const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
-            const word = words[Math.floor(Math.random() * words.length)];
+        // Generate 3-5 domains per category
+        for (let i = 0; i < 4; i++) {
+            const prefix = category.prefixes[Math.floor(Math.random() * category.prefixes.length)];
+            const suffix = category.suffixes[Math.floor(Math.random() * category.suffixes.length)];
             const tld = tlds[Math.floor(Math.random() * tlds.length)];
             
             let domain;
-            if (Math.random() > 0.5) {
-                // Combine prefix and word
-                domain = `${prefix}${word}${tld}`;
+            if (Math.random() > 0.6) {
+                // Add numbers sometimes
+                const randomNum = Math.floor(Math.random() * 99) + 1;
+                domain = `${prefix}${randomNum}${tld}`;
+            } else if (Math.random() > 0.3) {
+                // Combine prefix and suffix
+                domain = `${prefix}${suffix}${tld}`;
             } else {
-                // Use just one word with numbers
-                const randomNum = Math.floor(Math.random() * 999) + 1;
-                domain = `${word}${randomNum}${tld}`;
+                // Use year or current date
+                const currentYear = new Date().getFullYear();
+                domain = `${prefix}${currentYear}${tld}`;
             }
             
             if (this.isValidDomain(domain)) {
-                this.currentSources.push(domain);
+                domains.push(domain);
             }
         }
         
-        console.log(`Generated ${15} additional potential domains for testing`);
+        return domains;
     }
 
     async crawlCycle() {
         if (!this.isRunning) return;
         
         if (this.currentSources.length === 0) {
-            // If we've exhausted sources but need more discoveries, generate more
-            if (this.discoveries.length < 10) {
-                this.updateStatus('Generating more domains to explore...');
-                this.generateRandomDomains();
-                this.currentSources = [...new Set(this.currentSources)];
-            } else {
-                this.updateStatus('Discovery complete - found fresh content!');
+            // If we've exhausted sources, generate more diverse domains
+            this.updateStatus('Generating more diverse domains to explore...');
+            this.generateRandomDomains();
+            
+            // Also add some backup domains if we still don't have enough
+            if (this.currentSources.length < 5) {
+                const backupDomains = this.getBackupDomains();
+                this.currentSources.push(...backupDomains);
+            }
+            
+            this.currentSources = [...new Set(this.currentSources)];
+            
+            // If we still don't have sources, stop
+            if (this.currentSources.length === 0) {
+                this.updateStatus('No more domains to explore. Discovery complete!');
                 this.stopCrawling();
                 return;
             }
         }
         
         const domain = this.currentSources.shift();
-        this.updateStatus(`Exploring ${domain}... (${this.discoveries.length} discoveries so far)`);
+        this.updateStatus(`Exploring ${domain}... (${this.discoveries.length} quotes found)`);
         
         try {
             await this.crawlDomain(domain);
         } catch (error) {
             console.warn(`Failed to crawl ${domain}:`, error);
+            this.removeDiscoveryProgress(domain);
         }
         
-        // Continue with next domain after a delay
+        // Continue with next domain after a shorter delay for better real-time feel
         if (this.isRunning) {
-            // Shorter delay if we haven't found much yet
-            const delay = this.discoveries.length < 5 ? 1000 : 2000;
+            const delay = 800; // Fixed shorter delay for better real-time experience
             setTimeout(() => this.crawlCycle(), delay);
         }
     }
 
+    async getGeneratedDomains() {
+        // Generate domains that are likely to exist and have content
+        const currentYear = new Date().getFullYear();
+        const currentMonth = new Date().getMonth() + 1;
+        
+        // Categories of domains that are more likely to exist
+        const domainCategories = {
+            tech: {
+                prefixes: ['tech', 'digital', 'cyber', 'smart', 'ai', 'dev', 'code', 'web'],
+                suffixes: ['hub', 'lab', 'studio', 'space', 'zone', 'pro', 'net', 'io']
+            },
+            business: {
+                prefixes: ['biz', 'pro', 'expert', 'elite', 'prime', 'global', 'local'],
+                suffixes: ['solutions', 'services', 'group', 'agency', 'firm', 'co']
+            },
+            creative: {
+                prefixes: ['art', 'design', 'creative', 'pixel', 'craft', 'studio'],
+                suffixes: ['works', 'gallery', 'house', 'space', 'lab', 'zone']
+            },
+            news: {
+                prefixes: ['news', 'daily', 'times', 'post', 'herald', 'voice'],
+                suffixes: ['today', 'now', 'report', 'wire', 'feed', 'live']
+            }
+        };
+        
+        const tlds = ['.com', '.org', '.net', '.io', '.tech', '.dev', '.co'];
+        const generatedDomains = [];
+        
+        // Generate domains from each category
+        Object.entries(domainCategories).forEach(([category, data]) => {
+            for (let i = 0; i < 3; i++) {
+                const prefix = data.prefixes[Math.floor(Math.random() * data.prefixes.length)];
+                const suffix = data.suffixes[Math.floor(Math.random() * data.suffixes.length)];
+                const tld = tlds[Math.floor(Math.random() * tlds.length)];
+                
+                let domain;
+                const rand = Math.random();
+                
+                if (rand > 0.7) {
+                    // Add year
+                    domain = `${prefix}${currentYear}${tld}`;
+                } else if (rand > 0.4) {
+                    // Combine prefix and suffix
+                    domain = `${prefix}${suffix}${tld}`;
+                } else {
+                    // Add small number
+                    const num = Math.floor(Math.random() * 99) + 1;
+                    domain = `${prefix}${num}${tld}`;
+                }
+                
+                if (this.isValidDomain(domain)) {
+                    generatedDomains.push(domain);
+                }
+            }
+        });
+        
+        this.currentSources.push(...generatedDomains);
+        console.log(`Generated ${generatedDomains.length} potential domains`);
+    }
+
+    getBackupDomains() {
+        // These are domains that definitely exist and have interesting content
+        return [
+            'httpbin.org',
+            'quotes.toscrape.com',
+            'dummyjson.com',
+            'jsonplaceholder.typicode.com',
+            'reqres.in',
+            'postman-echo.com',
+            'httpstat.us',
+            'randomuser.me',
+            'dog.ceo',
+            'cat-fact.herokuapp.com',
+            'official-joke-api.appspot.com',
+            'icanhazdadjoke.com',
+            'uselessfacts.jsph.pl',
+            'api.github.com',
+            'lorem-picsum.photos',
+            'api.quotable.io',
+            'zenquotes.io',
+            'api.adviceslip.com',
+            'api.chucknorris.io',
+            'api.kanye.rest'
+        ];
+    }
+
     async crawlDomain(domain) {
         try {
+            // Show immediate feedback that we're trying this domain
+            this.showDiscoveryProgress(domain, 'Connecting...');
+            
             // First try HTTPS
             let url = `https://${domain}`;
             let html = await this.fetchWithProxy(url);
             
             if (html && html.length > 100) {
-                const content = this.parseContent(html, domain);
-                if (content) {
-                    console.log(`Successfully crawled ${domain} via HTTPS`);
-                    this.addDiscovery(content);
-                    return;
+                this.showDiscoveryProgress(domain, 'Parsing content...');
+                const contents = this.parseContentRealTime(html, domain);
+                
+                // Only show one quote from this domain
+                if (contents.length > 0 && !this.processedDomains.has(domain)) {
+                    const content = contents[0]; // Take only the first quote
+                    if (content && !this.foundQuotes.has(content.quote)) {
+                        this.foundQuotes.add(content.quote);
+                        this.processedDomains.add(domain);
+                        this.addDiscoveryRealTime(content);
+                    }
                 }
+                
+                console.log(`Successfully crawled ${domain} via HTTPS`);
+                return;
             }
         } catch (error) {
             console.warn(`HTTPS failed for ${domain}:`, error);
@@ -461,16 +710,26 @@ class RandomRadar {
         
         try {
             // If HTTPS fails, try HTTP
+            this.showDiscoveryProgress(domain, 'Trying HTTP...');
             let url = `http://${domain}`;
             let html = await this.fetchWithProxy(url);
             
             if (html && html.length > 100) {
-                const content = this.parseContent(html, domain);
-                if (content) {
-                    console.log(`Successfully crawled ${domain} via HTTP`);
-                    this.addDiscovery(content);
-                    return;
+                this.showDiscoveryProgress(domain, 'Parsing content...');
+                const contents = this.parseContentRealTime(html, domain);
+                
+                // Only show one quote from this domain
+                if (contents.length > 0 && !this.processedDomains.has(domain)) {
+                    const content = contents[0]; // Take only the first quote
+                    if (content && !this.foundQuotes.has(content.quote)) {
+                        this.foundQuotes.add(content.quote);
+                        this.processedDomains.add(domain);
+                        this.addDiscoveryRealTime(content);
+                    }
                 }
+                
+                console.log(`Successfully crawled ${domain} via HTTP`);
+                return;
             }
         } catch (httpError) {
             console.warn(`Both HTTPS and HTTP failed for ${domain}:`, httpError);
@@ -478,24 +737,177 @@ class RandomRadar {
         
         // If domain doesn't work, try with www prefix
         try {
+            this.showDiscoveryProgress(domain, 'Trying www...');
             let url = `https://www.${domain}`;
             let html = await this.fetchWithProxy(url);
             
             if (html && html.length > 100) {
-                const content = this.parseContent(html, domain);
-                if (content) {
-                    console.log(`Successfully crawled www.${domain} via HTTPS`);
-                    this.addDiscovery(content);
-                    return;
+                this.showDiscoveryProgress(domain, 'Parsing content...');
+                const contents = this.parseContentRealTime(html, domain);
+                
+                // Only show one quote from this domain
+                if (contents.length > 0 && !this.processedDomains.has(domain)) {
+                    const content = contents[0]; // Take only the first quote
+                    if (content && !this.foundQuotes.has(content.quote)) {
+                        this.foundQuotes.add(content.quote);
+                        this.processedDomains.add(domain);
+                        this.addDiscoveryRealTime(content);
+                    }
                 }
+                
+                console.log(`Successfully crawled www.${domain} via HTTPS`);
+                return;
             }
         } catch (wwwError) {
             console.warn(`www.${domain} also failed:`, wwwError);
         }
+        
+        // Remove progress indicator if all methods failed
+        this.removeDiscoveryProgress(domain);
+    }
+
+    showDiscoveryProgress(domain, status) {
+        const container = document.getElementById('discoveries');
+        const progressId = `progress-${domain.replace(/\./g, '-')}`;
+        
+        // Remove existing progress for this domain
+        const existingProgress = document.getElementById(progressId);
+        if (existingProgress) {
+            existingProgress.remove();
+        }
+        
+        // Add new progress indicator
+        const progressElement = document.createElement('div');
+        progressElement.id = progressId;
+        progressElement.className = 'discovery-progress';
+        progressElement.innerHTML = `
+            <div class="progress-content">
+                <div class="progress-spinner"></div>
+                <span class="progress-domain">${domain}</span>
+                <span class="progress-status">${status}</span>
+            </div>
+        `;
+        
+        container.insertBefore(progressElement, container.firstChild);
+    }
+
+    removeDiscoveryProgress(domain) {
+        const progressId = `progress-${domain.replace(/\./g, '-')}`;
+        const progressElement = document.getElementById(progressId);
+        if (progressElement) {
+            progressElement.remove();
+        }
+    }
+
+    parseContentRealTime(html, domain) {
+        // Create a DOM parser
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        // Extract title
+        const title = doc.querySelector('title')?.textContent?.trim() || 'Untitled';
+        
+        // Extract meta description
+        const metaDesc = doc.querySelector('meta[name="description"]')?.getAttribute('content') || '';
+        
+        // Extract quotes/snippets and prioritize them
+        const quotes = this.extractQuotes(doc);
+        
+        if (quotes.length === 0) {
+            return []; // No interesting content found
+        }
+        
+        // Prioritize quotes: longer ones that look more like actual quotes
+        const prioritizedQuotes = quotes.sort((a, b) => {
+            // Prefer quotes with quotation marks
+            const aHasQuotes = a.includes('"') || a.includes('"') || a.includes('"');
+            const bHasQuotes = b.includes('"') || b.includes('"') || b.includes('"');
+            
+            if (aHasQuotes && !bHasQuotes) return -1;
+            if (!aHasQuotes && bHasQuotes) return 1;
+            
+            // Prefer longer quotes (but not too long)
+            const aScore = a.length > 50 && a.length < 200 ? a.length : a.length * 0.5;
+            const bScore = b.length > 50 && b.length < 200 ? b.length : b.length * 0.5;
+            
+            return bScore - aScore;
+        });
+        
+        // Return only the best quote for this domain
+        const bestQuote = prioritizedQuotes[0];
+        
+        return [{
+            domain,
+            title,
+            description: metaDesc,
+            quote: bestQuote,
+            timestamp: new Date(),
+            url: `https://${domain}`
+        }];
+    }
+
+    addDiscoveryRealTime(content) {
+        // Remove progress indicator for this domain
+        this.removeDiscoveryProgress(content.domain);
+        
+        // Add to discoveries
+        this.discoveries.unshift(content);
+        
+        // Create and animate in the new discovery
+        const container = document.getElementById('discoveries');
+        const discoveryElement = document.createElement('div');
+        discoveryElement.className = 'discovery discovery-new';
+        discoveryElement.innerHTML = `
+            <div class="discovery-header">
+                <a href="${content.url}" target="_blank" class="discovery-url">${content.domain}</a>
+                <span class="discovery-time">${this.formatTime(content.timestamp)}</span>
+            </div>
+            <h3 style="margin-bottom: 10px; color: #2d3748;">${content.title}</h3>
+            ${content.description ? `<p style="color: #718096; margin-bottom: 15px;">${content.description}</p>` : ''}
+            <div class="discovery-quote">"${content.quote}"</div>
+            <div class="discovery-meta">
+                <span class="discovery-tag">Fresh Content</span>
+                <span class="discovery-tag">Quote Length: ${content.quote.length} chars</span>
+            </div>
+        `;
+        
+        container.insertBefore(discoveryElement, container.firstChild);
+        
+        // Animate the element in
+        setTimeout(() => {
+            discoveryElement.classList.remove('discovery-new');
+        }, 100);
+        
+        // Limit displayed discoveries to prevent performance issues
+        const discoveries = container.querySelectorAll('.discovery');
+        if (discoveries.length > 20) {
+            discoveries[discoveries.length - 1].remove();
+        }
+        
+        this.saveDiscoveries();
+        this.updateStatus(`Found quote from ${content.domain} - "${content.quote.substring(0, 50)}..."`);
     }
 
     async fetchWithProxy(url) {
         let lastError;
+        
+        // Try direct fetch first (for same-origin requests)
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                },
+                signal: AbortSignal.timeout(8000) // 8 second timeout
+            });
+            
+            if (response.ok) {
+                return await response.text();
+            }
+        } catch (directError) {
+            // Direct fetch failed, try proxies
+            console.log('Direct fetch failed, trying proxies...');
+        }
         
         // Try each proxy until one works or all fail
         for (let i = 0; i < this.corsProxies.length; i++) {
@@ -504,19 +916,20 @@ class RandomRadar {
             // Skip proxies that have failed recently
             if (this.proxyFailures.has(proxy)) {
                 const failureTime = this.proxyFailures.get(proxy);
-                if (Date.now() - failureTime < 60000) { // Skip for 1 minute
+                if (Date.now() - failureTime < 30000) { // Skip for 30 seconds
                     this.currentProxyIndex = (this.currentProxyIndex + 1) % this.corsProxies.length;
                     continue;
                 }
             }
             
             try {
-                const response = await fetch(proxy + encodeURIComponent(url), {
+                const proxyUrl = proxy + encodeURIComponent(url);
+                const response = await fetch(proxyUrl, {
                     method: 'GET',
                     headers: {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
                     },
-                    timeout: 10000 // 10 second timeout
+                    signal: AbortSignal.timeout(10000) // 10 second timeout
                 });
                 
                 if (response.ok) {
@@ -575,11 +988,30 @@ class RandomRadar {
     extractQuotes(doc) {
         const quotes = [];
         
-        // Look for blockquotes
+        // Look for blockquotes first (highest priority)
         const blockquotes = doc.querySelectorAll('blockquote');
         blockquotes.forEach(bq => {
             const text = bq.textContent.trim();
             if (text.length > 20 && text.length < 500) {
+                quotes.push(text);
+            }
+        });
+        
+        // Look for quote elements
+        const quoteElements = doc.querySelectorAll('q, cite, .quote, .quotation');
+        quoteElements.forEach(q => {
+            const text = q.textContent.trim();
+            if (text.length > 15 && text.length < 400) {
+                quotes.push(text);
+            }
+        });
+        
+        // Look for headings that might be quotes or interesting statements
+        const headings = doc.querySelectorAll('h1, h2, h3, h4');
+        headings.forEach(h => {
+            const text = h.textContent.trim();
+            if (text.length > 20 && text.length < 200 && 
+                (text.includes('?') || text.includes('!') || text.includes(':') || text.includes('"'))) {
                 quotes.push(text);
             }
         });
@@ -590,15 +1022,19 @@ class RandomRadar {
             const text = p.textContent.trim();
             if (text.length > 50 && text.length < 300) {
                 // Check if it looks like a quote or interesting statement
-                if (text.includes('"') || text.includes('—') || text.includes('–') || 
-                    text.match(/^[A-Z][^.!?]*[.!?]$/)) {
+                if (text.includes('"') || text.includes('"') || text.includes('"') || 
+                    text.includes('—') || text.includes('–') || text.includes('...') ||
+                    text.match(/^[A-Z][^.!?]*[.!?]$/) || 
+                    text.includes('said') || text.includes('stated') || 
+                    text.includes('according to') || text.includes('believe') ||
+                    text.match(/\b(think|feel|believe|consider|argue|suggest|claim|assert)\b/i)) {
                     quotes.push(text);
                 }
             }
         });
         
         // Look for article content
-        const articles = doc.querySelectorAll('article p, .content p, .post p');
+        const articles = doc.querySelectorAll('article p, .content p, .post p, .entry p, .article p');
         articles.forEach(p => {
             const text = p.textContent.trim();
             if (text.length > 30 && text.length < 250) {
@@ -606,7 +1042,74 @@ class RandomRadar {
             }
         });
         
-        return quotes.slice(0, 5); // Limit to 5 quotes
+        // Look for list items that might contain quotes
+        const listItems = doc.querySelectorAll('li');
+        listItems.forEach(li => {
+            const text = li.textContent.trim();
+            if (text.length > 25 && text.length < 200 && 
+                (text.includes('"') || text.includes('—') || text.includes(':'))) {
+                quotes.push(text);
+            }
+        });
+        
+        // Look for emphasized text
+        const emphasized = doc.querySelectorAll('em, strong, b, i');
+        emphasized.forEach(em => {
+            const text = em.textContent.trim();
+            if (text.length > 20 && text.length < 150) {
+                quotes.push(text);
+            }
+        });
+        
+        // Look for div elements that might contain quotes
+        const divs = doc.querySelectorAll('div.quote, div.excerpt, div.highlight, div.summary');
+        divs.forEach(div => {
+            const text = div.textContent.trim();
+            if (text.length > 20 && text.length < 400) {
+                quotes.push(text);
+            }
+        });
+        
+        // Remove duplicates and clean up
+        const uniqueQuotes = [...new Set(quotes)]
+            .filter(quote => {
+                // Filter out common non-quote content
+                const lowerQuote = quote.toLowerCase();
+                return !lowerQuote.includes('cookie') &&
+                       !lowerQuote.includes('privacy policy') &&
+                       !lowerQuote.includes('terms of service') &&
+                       !lowerQuote.includes('copyright') &&
+                       !lowerQuote.includes('all rights reserved') &&
+                       !lowerQuote.includes('404') &&
+                       !lowerQuote.includes('error') &&
+                       !lowerQuote.includes('loading') &&
+                       !lowerQuote.includes('please wait') &&
+                       !lowerQuote.includes('click here') &&
+                       !lowerQuote.includes('read more') &&
+                       !lowerQuote.includes('subscribe') &&
+                       !lowerQuote.includes('sign up') &&
+                       !lowerQuote.includes('log in') &&
+                       !lowerQuote.includes('home') &&
+                       !lowerQuote.includes('about') &&
+                       !lowerQuote.includes('contact') &&
+                       !lowerQuote.includes('menu') &&
+                       !lowerQuote.includes('navigation') &&
+                       !lowerQuote.includes('javascript') &&
+                       !lowerQuote.includes('css') &&
+                       !lowerQuote.includes('html') &&
+                       !lowerQuote.includes('function') &&
+                       !lowerQuote.includes('var ') &&
+                       !lowerQuote.includes('const ') &&
+                       !lowerQuote.includes('let ') &&
+                       !lowerQuote.includes('</') &&
+                       !lowerQuote.includes('{}') &&
+                       !lowerQuote.includes('[]') &&
+                       quote.length > 15 &&
+                       quote.length < 400;
+            })
+            .slice(0, 10); // Get top 10 candidates for sorting
+        
+        return uniqueQuotes;
     }
 
     addDiscovery(content) {
@@ -799,21 +1302,38 @@ function showAbout() {
     
     modalBody.innerHTML = `
         <h2>About Random Radar</h2>
-        <p>Random Radar is an experimental web discovery tool that finds content from newly created websites before they appear in major search engines.</p>
+        <p>Random Radar is a web discovery tool that explores various websites to find interesting content and quotes.</p>
         
         <h3>How it works:</h3>
         <ul>
-            <li><strong>Certificate Transparency:</strong> Monitors SSL certificate logs for newly registered domains</li>
-            <li><strong>Domain Registration:</strong> Tracks recently registered domains from public feeds</li>
-            <li><strong>Content Extraction:</strong> Analyzes websites to extract interesting quotes and snippets</li>
-            <li><strong>Client-side Processing:</strong> All crawling happens in your browser for privacy</li>
+            <li><strong>Mixed Discovery:</strong> Combines multiple approaches to find websites</li>
+            <li><strong>Certificate Transparency:</strong> Attempts to monitor SSL certificate logs (when possible)</li>
+            <li><strong>Curated Sources:</strong> Includes reliable websites known to have interesting content</li>
+            <li><strong>Generated Domains:</strong> Creates domain combinations based on current trends</li>
+            <li><strong>Content Extraction:</strong> Analyzes websites to extract quotes and snippets in real-time</li>
+        </ul>
+        
+        <h3>Technical Limitations:</h3>
+        <p><strong>Why "newly registered" domains are difficult to find:</strong></p>
+        <ul>
+            <li>Certificate Transparency APIs often block automated requests</li>
+            <li>Browser CORS restrictions prevent direct access to many APIs</li>
+            <li>Most "new domain" services require API keys or subscriptions</li>
+            <li>Real-time domain registration feeds are typically commercial services</li>
+        </ul>
+        
+        <h3>What you actually get:</h3>
+        <ul>
+            <li>A mix of potentially new and existing interesting websites</li>
+            <li>Real-time content discovery and quote extraction</li>
+            <li>Diverse content from various categories and sources</li>
+            <li>An engaging exploration of web content</li>
         </ul>
         
         <h3>Privacy & Ethics:</h3>
-        <p>This tool respects robots.txt files and rate limits requests. All processing happens client-side, and no data is collected or stored on external servers.</p>
+        <p>This tool respects websites and rate limits requests. All processing happens client-side in your browser for privacy.</p>
         
-        <h3>Limitations:</h3>
-        <p>Due to CORS restrictions, this tool relies on public proxy services and may not work with all websites. It's designed for educational and research purposes.</p>
+        <p><em>This is an experimental tool for educational purposes. Results may vary due to technical limitations.</em></p>
     `;
     
     modal.style.display = 'block';
