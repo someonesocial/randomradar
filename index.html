@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Radar - Neue Website-Entdeckungen</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Entdecke neue Websites mit Certificate Transparency Logs. Random Radar findet brandneue Domains und sammelt interessante Zitate bevor sie von Google indexiert werden.">
+    <meta name="keywords" content="website discovery, certificate transparency, web crawler, new websites, quotes, snippets, unindexed websites">
+    <meta name="author" content="Random Radar">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Random Radar - Neue Website-Entdeckungen">
+    <meta property="og:description" content="Entdecke neue Websites mit Certificate Transparency Logs. Finde brandneue Domains und interessante Zitate bevor sie indexiert werden.">
+    <meta property="og:url" content="https://yourusername.github.io/randomradar">
+    <meta property="og:site_name" content="Random Radar">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Random Radar - Neue Website-Entdeckungen">
+    <meta name="twitter:description" content="Entdecke neue Websites mit Certificate Transparency Logs">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌐</text></svg>">
+    
+    <!-- Preconnect for performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: white;
+        }
+        
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+        
+        .explanation {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 40px;
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .explanation h2 {
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #fff;
+        }
+        
+        .explanation-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .explanation-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 25px;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .explanation-card h3 {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .explanation-card p {
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+        
+        .explanation-card ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .explanation-card li {
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+        }
+        
+        .explanation-card li:before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: #ff6b6b;
+            font-weight: bold;
+        }
+        
+        .how-it-works {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .how-it-works h3 {
+            margin-bottom: 15px;
+            color: #fff;
+        }
+        
+        .process-steps {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .process-step {
+            flex: 1;
+            min-width: 200px;
+            text-align: center;
+            position: relative;
+        }
+        
+        .process-step:not(:last-child):after {
+            content: "→";
+            position: absolute;
+            right: -15px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.5rem;
+            color: #ff6b6b;
+        }
+        
+        .process-icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            display: block;
+        }
+        
+        .process-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #fff;
+        }
+        
+        .process-desc {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+        
+        .stat-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            color: white;
+            backdrop-filter: blur(5px);
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(255, 107, 107, 0.3);
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .status {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            color: white;
+            display: none;
+            backdrop-filter: blur(5px);
+        }
+        
+        .status.show {
+            display: block;
+        }
+        
+        .status.success {
+            background: rgba(76, 175, 80, 0.3);
+        }
+        
+        .status.error {
+            background: rgba(244, 67, 54, 0.3);
+        }
+        
+        .status.warning {
+            background: rgba(255, 193, 7, 0.3);
+        }
+        
+        .quotes-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .quotes-section h2 {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            font-size: 2rem;
+        }
+        
+        .quotes-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        
+        .quote-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .quote-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+        
+        .quote-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #ff6b6b, #ee5a24, #764ba2);
+        }
+        
+        .quote-text {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 15px;
+            color: #2c3e50;
+            font-style: italic;
+        }
+        
+        .quote-source {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 2px solid #ecf0f1;
+        }
+        
+        .website-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.3s ease;
+        }
+        
+        .website-link:hover {
+            color: #764ba2;
+        }
+        
+        .discovery-date {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: white;
+        }
+        
+        .loading-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .demo-notice {
+            background: rgba(255, 193, 7, 0.2);
+            border: 1px solid rgba(255, 193, 7, 0.4);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .github-link {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 25px;
+            text-decoration: none;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .github-link:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .stats {
+                flex-direction: column;
+                gap: 20px;
+            }
+            
+            .quotes-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .explanation-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .process-steps {
+                flex-direction: column;
+            }
+            
+            .process-step:not(:last-child):after {
+                content: "↓";
+                right: 50%;
+                transform: translateX(50%);
+                top: 100%;
+            }
+            
+            .github-link {
+                position: static;
+                display: inline-block;
+                margin-bottom: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="https://github.com/yourusername/randomradar" class="github-link">
+        📁 GitHub Repository
+    </a>
+    
+    <div class="container">
+        <div class="header">
+            <h1>🌐 Random Radar</h1>
+            <p>Entdecke neue Websites und ihre interessantesten Zitate</p>
+        </div>
+        
+        <div class="explanation">
+            <h2>🔍 Was macht Random Radar?</h2>
+            
+            <div class="explanation-grid">
+                <div class="explanation-card">
+                    <h3>🎯 Ziel</h3>
+                    <p>Random Radar findet brandneue Websites, die noch nicht von Google oder anderen Suchmaschinen indexiert wurden. Es sammelt interessante Zitate und Textschnipsel von diesen frischen Websites.</p>
+                </div>
+                
+                <div class="explanation-card">
+                    <h3>🔐 Certificate Transparency</h3>
+                    <p>Wir nutzen Certificate Transparency Logs - öffentliche Aufzeichnungen aller SSL-Zertifikate:</p>
+                    <ul>
+                        <li>Alle neuen HTTPS-Websites erhalten SSL-Zertifikate</li>
+                        <li>Diese werden in öffentlichen CT-Logs protokolliert</li>
+                        <li>Neue Domains erscheinen dort vor Suchmaschinen</li>
+                        <li>Perfekt für das Entdecken frischer Inhalte</li>
+                    </ul>
+                </div>
+                
+                <div class="explanation-card">
+                    <h3>🤖 Intelligente Extraktion</h3>
+                    <p>Unser System analysiert gefundene Websites und extrahiert:</p>
+                    <ul>
+                        <li>Aussagekräftige Zitate und Textschnipsel</li>
+                        <li>Filtert Werbung und technische Inhalte</li>
+                        <li>Erkennt verschiedene Anführungszeichen-Formate</li>
+                        <li>Priorisiert qualitativ hochwertige Inhalte</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="how-it-works">
+                <h3>⚙️ Wie funktioniert es?</h3>
+                <div class="process-steps">
+                    <div class="process-step">
+                        <div class="process-icon">📋</div>
+                        <div class="process-title">CT-Logs abfragen</div>
+                        <div class="process-desc">Suche nach neuen SSL-Zertifikaten der letzten 24h</div>
+                    </div>
+                    <div class="process-step">
+                        <div class="process-icon">🌐</div>
+                        <div class="process-title">Websites crawlen</div>
+                        <div class="process-desc">Besuche neue Domains und lade Inhalte</div>
+                    </div>
+                    <div class="process-step">
+                        <div class="process-icon">🔍</div>
+                        <div class="process-title">Zitate extrahieren</div>
+                        <div class="process-desc">Finde interessante Textpassagen</div>
+                    </div>
+                    <div class="process-step">
+                        <div class="process-icon">✨</div>
+                        <div class="process-title">Präsentieren</div>
+                        <div class="process-desc">Zeige Zitate mit Quellenlinks</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="demo-notice">
+            <strong>Demo-Modus:</strong> Diese GitHub Pages Version zeigt Beispieldaten. 
+            Die vollständige Version mit echtem Certificate Transparency Crawling finden Sie im 
+            <a href="https://github.com/yourusername/randomradar" style="color: #fff; text-decoration: underline;">GitHub Repository</a>.
+        </div>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="totalQuotes">0</div>
+                <div class="stat-label">Gefundene Zitate</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="uniqueWebsites">0</div>
+                <div class="stat-label">Neue Websites</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="lastScan">-</div>
+                <div class="stat-label">Letzter Scan</div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button class="btn btn-primary" onclick="startDiscovery()" id="discoverBtn">
+                🔍 Neue Websites entdecken
+            </button>
+            <button class="btn btn-secondary" onclick="refreshQuotes()">
+                🔄 Aktualisieren
+            </button>
+            <button class="btn btn-secondary" onclick="showExampleQuotes()">
+                📖 Beispieldaten zeigen
+            </button>
+        </div>
+        
+        <div class="status" id="statusMessage"></div>
+        
+        <div class="quotes-section">
+            <h2>📚 Entdeckte Zitate</h2>
+            <div class="quotes-container" id="quotesContainer">
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <p>Keine Zitate geladen. Klicke auf "Beispieldaten zeigen" um Demo-Inhalte zu sehen!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Demo-Daten für GitHub Pages
+        const demoQuotes = [
+            {
+                quote: "Innovation distinguishes between a leader and a follower. The future belongs to those who dare to create something new.",
+                website: "techstartup2025.com",
+                discovered_at: "2025-07-07T10:30:00"
+            },
+            {
+                quote: "In the digital age, privacy is not about hiding something wrong, it's about protecting something right.",
+                website: "privacyfirst.org",
+                discovered_at: "2025-07-07T09:15:00"
+            },
+            {
+                quote: "Sustainable technology is not just about being green, it's about being smart for the future generations.",
+                website: "greentechrevolution.net",
+                discovered_at: "2025-07-07T08:45:00"
+            },
+            {
+                quote: "The best way to predict the future is to create it, especially in the realm of artificial intelligence.",
+                website: "aifuture.dev",
+                discovered_at: "2025-07-07T11:20:00"
+            },
+            {
+                quote: "Code is poetry written in logic. Every algorithm tells a story of human creativity.",
+                website: "codepoetry.blog",
+                discovered_at: "2025-07-07T07:30:00"
+            },
+            {
+                quote: "The internet has become the town square for the global village, where ideas meet and minds connect.",
+                website: "digitalvillage.com",
+                discovered_at: "2025-07-07T06:55:00"
+            },
+            {
+                quote: "Cybersecurity is not about building walls, it's about creating smart doors that know who to let in.",
+                website: "securitymindset.io",
+                discovered_at: "2025-07-07T12:10:00"
+            },
+            {
+                quote: "Data is the new oil, but unlike oil, data can be refined infinitely without depleting its source.",
+                website: "dataalchemy.tech",
+                discovered_at: "2025-07-07T05:40:00"
+            }
+        ];
+        
+        let isDiscovering = false;
+        let currentQuotes = [];
+        
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = `status show ${type}`;
+            
+            setTimeout(() => {
+                statusDiv.classList.remove('show');
+            }, 5000);
+        }
+        
+        function startDiscovery() {
+            if (isDiscovering) {
+                showStatus('Entdeckung läuft bereits...', 'warning');
+                return;
+            }
+            
+            isDiscovering = true;
+            const discoverBtn = document.getElementById('discoverBtn');
+            discoverBtn.disabled = true;
+            discoverBtn.textContent = '🔄 Suche läuft...';
+            
+            showStatus('Starte Website-Entdeckung über Certificate Transparency Logs...', 'info');
+            
+            // Simuliere CT-Log Abfrage
+            setTimeout(() => {
+                showStatus('Gefundene Domains werden analysiert...', 'info');
+                
+                // Simuliere Crawling-Prozess
+                setTimeout(() => {
+                    showStatus('Extrahiere Zitate von neuen Websites...', 'info');
+                    
+                    setTimeout(() => {
+                        // Füge zufällige neue Zitate hinzu
+                        const newQuotes = demoQuotes
+                            .sort(() => Math.random() - 0.5)
+                            .slice(0, Math.floor(Math.random() * 4) + 2)
+                            .map(quote => ({
+                                ...quote,
+                                discovered_at: new Date().toISOString()
+                            }));
+                        
+                        currentQuotes = [...newQuotes, ...currentQuotes].slice(0, 12);
+                        updateQuotesDisplay(currentQuotes);
+                        updateStats(currentQuotes);
+                        
+                        showStatus(`Entdeckung abgeschlossen! ${newQuotes.length} neue Zitate gefunden.`, 'success');
+                        isDiscovering = false;
+                        discoverBtn.disabled = false;
+                        discoverBtn.textContent = '🔍 Neue Websites entdecken';
+                    }, 2000);
+                }, 2000);
+            }, 1500);
+        }
+        
+        function refreshQuotes() {
+            showStatus('Aktualisiere Zitate...', 'info');
+            setTimeout(() => {
+                updateQuotesDisplay(currentQuotes);
+                updateStats(currentQuotes);
+                showStatus('Zitate aktualisiert!', 'success');
+            }, 1000);
+        }
+        
+        function showExampleQuotes() {
+            currentQuotes = [...demoQuotes];
+            updateQuotesDisplay(currentQuotes);
+            updateStats(currentQuotes);
+            showStatus('Beispieldaten geladen!', 'success');
+        }
+        
+        function updateQuotesDisplay(quotes) {
+            const container = document.getElementById('quotesContainer');
+            
+            if (quotes.length === 0) {
+                container.innerHTML = `
+                    <div class="loading">
+                        <div class="loading-spinner"></div>
+                        <p>Keine Zitate geladen. Klicke auf "Beispieldaten zeigen" um Demo-Inhalte zu sehen!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = quotes.map(quote => `
+                <div class="quote-card">
+                    <div class="quote-text">"${quote.quote}"</div>
+                    <div class="quote-source">
+                        <a href="https://${quote.website}" target="_blank" class="website-link">${quote.website}</a>
+                        <span class="discovery-date">${formatDate(quote.discovered_at)}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function updateStats(quotes) {
+            const totalQuotes = quotes.length;
+            const uniqueWebsites = new Set(quotes.map(q => q.website)).size;
+            const lastScan = quotes.length > 0 ? formatTime(quotes[0].discovered_at) : '-';
+            
+            document.getElementById('totalQuotes').textContent = totalQuotes;
+            document.getElementById('uniqueWebsites').textContent = uniqueWebsites;
+            document.getElementById('lastScan').textContent = lastScan;
+        }
+        
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('de-DE');
+        }
+        
+        function formatTime(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+        }
+        
+        // Initialisierung
+        document.addEventListener('DOMContentLoaded', function() {
+            updateStats([]);
+            
+            // Zeige nach 2 Sekunden einen Hinweis
+            setTimeout(() => {
+                showStatus('Tipp: Klicke auf "Beispieldaten zeigen" um Demo-Inhalte zu sehen!', 'info');
+            }, 2000);
+        });
+        
+        // Auto-refresh alle 5 Minuten in Demo-Modus
+        setInterval(() => {
+            if (currentQuotes.length > 0 && !isDiscovering) {
+                refreshQuotes();
+            }
+        }, 300000);
+    </script>
+</body>
+</html>
