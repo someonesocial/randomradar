@@ -482,22 +482,22 @@ body {
 
 /* Disclaimer styles */
 .disclaimer {
-    background: #fff3cd;
-    border: 1px solid #ffeaa7;
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
     border-radius: 10px;
     padding: 20px;
     margin: 20px 0;
-    border-left: 4px solid #f39c12;
+    border-left: 4px solid #28a745;
 }
 
 .disclaimer h4 {
-    color: #856404;
+    color: #155724;
     margin-bottom: 10px;
     font-size: 1.1rem;
 }
 
 .disclaimer p {
-    color: #856404;
+    color: #155724;
     font-size: 0.95rem;
     margin: 0;
     line-height: 1.5;

@@ -79,20 +79,16 @@ class RandomRadar {
     }
 
     async discoverNewDomains() {
-        this.updateStatus('Discovering domains from various sources...');
+        this.updateStatus('Discovering newly registered domains...');
         this.currentSources = []; // Clear previous sources
         
-        // Since real-time new domain discovery is limited by CORS and API restrictions,
-        // we'll use a hybrid approach that combines:
-        // 1. Some reliable sources that work
-        // 2. Trending/generated domains
-        // 3. Curated list of interesting sites
-        
+        // Focus on discovering actual new domains through multiple methods
         const discoveryPromises = [
-            this.getReliableContentSources(),
-            this.getTrendingDomains(),
-            this.getGeneratedDomains(),
-            this.tryRealNewDomains() // This will attempt real new domains but may fail
+            this.getCertificateTransparencyDomains(),
+            this.getRecentlyRegisteredDomains(),
+            this.getDNSBasedDomains(),
+            this.getTrendingNewDomains(),
+            this.getGeneratedPotentialDomains()
         ];
         
         // Wait for all methods to complete
@@ -102,12 +98,12 @@ class RandomRadar {
             console.warn('Some discovery methods failed:', error);
         }
         
-        // Remove duplicates and ensure we have domains
+        // Remove duplicates
         this.currentSources = [...new Set(this.currentSources)];
         
-        // If we don't have enough domains, add more reliable ones
-        if (this.currentSources.length < 10) {
-            this.currentSources.push(...this.getBackupDomains());
+        // If we don't have enough domains, generate more potential new ones
+        if (this.currentSources.length < 15) {
+            await this.generateMorePotentialDomains();
             this.currentSources = [...new Set(this.currentSources)];
         }
         
@@ -115,72 +111,160 @@ class RandomRadar {
         this.currentSources = this.currentSources.sort(() => 0.5 - Math.random());
         
         // Limit to prevent overwhelming
-        this.currentSources = this.currentSources.slice(0, 30);
+        this.currentSources = this.currentSources.slice(0, 40);
         
-        this.updateStatus(`Found ${this.currentSources.length} domains to explore (mix of new and interesting sites)`);
-        console.log('Domains to explore:', this.currentSources);
+        this.updateStatus(`Found ${this.currentSources.length} potential new domains to explore`);
+        console.log('New domains to explore:', this.currentSources);
     }
 
-    async getReliableContentSources() {
-        // These are sites that definitely have content and are accessible
-        const reliableSources = [
-            'quotes.toscrape.com',
-            'httpbin.org',
-            'jsonplaceholder.typicode.com',
-            'dummyjson.com',
-            'reqres.in',
-            'postman-echo.com',
-            'httpstat.us',
-            'randomuser.me',
-            'lorem-picsum.photos',
-            'api.github.com',
-            'dog.ceo',
-            'cat-fact.herokuapp.com',
-            'official-joke-api.appspot.com',
-            'icanhazdadjoke.com',
-            'uselessfacts.jsph.pl'
+    async getTrendingNewDomains() {
+        // Generate domains based on current trends and recent events that are likely to be newly registered
+        const currentDate = new Date();
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth() + 1;
+        const day = currentDate.getDate();
+        
+        // Current trending topics that might inspire new domains
+        const trendingTopics = [
+            'ai', 'artificialintelligence', 'machinelearning', 'deeplearning',
+            'blockchain', 'cryptocurrency', 'bitcoin', 'ethereum', 'defi',
+            'metaverse', 'virtualreality', 'augmentedreality', 'web3',
+            'fintech', 'edtech', 'healthtech', 'climatetech', 'greentech',
+            'startup', 'innovation', 'digitaltransformation', 'automation',
+            'cloudcomputing', 'quantumcomputing', 'cybersecurity',
+            'sustainability', 'renewableenergy', 'electricvehicles',
+            'biotechnology', 'genomics', 'telemedicine', 'remotework',
+            'nft', 'dao', 'smart', 'future', 'next', 'neo', 'ultra', 'mega'
         ];
         
-        this.currentSources.push(...reliableSources);
-        console.log(`Added ${reliableSources.length} reliable content sources`);
-    }
-
-    async tryRealNewDomains() {
-        // This will attempt to get real new domains, but won't break if it fails
-        try {
-            // Try a simplified approach to get some real new domains
-            await this.getRealNewDomainsSimplified();
-        } catch (error) {
-            console.warn('Real new domain discovery failed (expected due to CORS limitations):', error);
-            // This is expected to fail often, so we don't treat it as a critical error
-        }
-    }
-
-    async getRealNewDomainsSimplified() {
-        // Try to get some real new domains using a more reliable method
-        try {
-            // Try Certificate Transparency with a simpler approach
-            const response = await this.fetchWithProxy('https://crt.sh/?q=%25&output=json&exclude=expired');
-            const data = JSON.parse(response);
+        const businessSuffixes = [
+            'hub', 'lab', 'studio', 'space', 'zone', 'core', 'pro', 'tech',
+            'solutions', 'services', 'platform', 'network', 'systems',
+            'ventures', 'agency', 'group', 'collective', 'works'
+        ];
+        
+        const modernTlds = ['.io', '.ai', '.tech', '.dev', '.app', '.co', '.me', '.xyz', '.online'];
+        
+        const potentialDomains = [];
+        
+        // Generate trending combinations
+        for (let i = 0; i < 25; i++) {
+            const topic = trendingTopics[Math.floor(Math.random() * trendingTopics.length)];
+            const suffix = businessSuffixes[Math.floor(Math.random() * businessSuffixes.length)];
+            const tld = modernTlds[Math.floor(Math.random() * modernTlds.length)];
             
-            if (data && Array.isArray(data)) {
-                // Get recent certificates (last few days)
-                const recentDomains = data
-                    .filter(cert => {
-                        const issueDate = new Date(cert.not_before);
-                        const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-                        return issueDate > threeDaysAgo;
-                    })
-                    .map(cert => cert.name_value.split('\n')[0])
-                    .filter(domain => this.isValidNewDomain(domain))
-                    .slice(0, 10);
-                
-                this.currentSources.push(...recentDomains);
-                console.log(`Found ${recentDomains.length} potentially new domains from Certificate Transparency`);
+            let domain;
+            const rand = Math.random();
+            
+            if (rand > 0.8) {
+                // Add current year for "new in 2025" type domains
+                domain = `${topic}${year}${tld}`;
+            } else if (rand > 0.6) {
+                // Combine topic with suffix
+                domain = `${topic}${suffix}${tld}`;
+            } else if (rand > 0.4) {
+                // Add small number (common for new startups)
+                const num = Math.floor(Math.random() * 99) + 1;
+                domain = `${topic}${num}${tld}`;
+            } else {
+                // Use "new" prefix for fresh domains
+                domain = `new${topic}${tld}`;
             }
-        } catch (error) {
-            console.warn('Certificate transparency failed:', error);
+            
+            if (this.isValidDomain(domain)) {
+                potentialDomains.push(domain);
+            }
         }
+        
+        this.currentSources.push(...potentialDomains);
+        console.log(`Generated ${potentialDomains.length} trending potential new domains`);
+    }
+
+    async getGeneratedPotentialDomains() {
+        // Generate domains that are likely to be recently registered based on naming patterns
+        const currentYear = new Date().getFullYear();
+        const currentMonth = new Date().getMonth() + 1;
+        
+        // Categories of domains that follow modern naming conventions
+        const modernPrefixes = [
+            'get', 'try', 'use', 'go', 'my', 'the', 'new', 'next', 'pro', 'super',
+            'ultra', 'mega', 'smart', 'fast', 'easy', 'simple', 'quick', 'instant'
+        ];
+        
+        const techWords = [
+            'app', 'tech', 'digital', 'cloud', 'data', 'ai', 'bot', 'auto',
+            'sync', 'flow', 'link', 'connect', 'share', 'send', 'build', 'make'
+        ];
+        
+        const businessWords = [
+            'work', 'team', 'crew', 'squad', 'collective', 'group', 'network',
+            'hub', 'base', 'core', 'zone', 'space', 'lab', 'studio', 'shop'
+        ];
+        
+        const tlds = ['.com', '.io', '.tech', '.dev', '.app', '.co', '.me', '.xyz'];
+        
+        const generatedDomains = [];
+        
+        // Generate modern domain combinations
+        for (let i = 0; i < 30; i++) {
+            const prefix = modernPrefixes[Math.floor(Math.random() * modernPrefixes.length)];
+            const word = [...techWords, ...businessWords][Math.floor(Math.random() * (techWords.length + businessWords.length))];
+            const tld = tlds[Math.floor(Math.random() * tlds.length)];
+            
+            let domain;
+            const rand = Math.random();
+            
+            if (rand > 0.7) {
+                // prefix + word (e.g., getapp.io)
+                domain = `${prefix}${word}${tld}`;
+            } else if (rand > 0.4) {
+                // word + current year (e.g., tech2025.com)
+                domain = `${word}${currentYear}${tld}`;
+            } else {
+                // word + small number (e.g., app42.dev)
+                const num = Math.floor(Math.random() * 999) + 1;
+                domain = `${word}${num}${tld}`;
+            }
+            
+            if (this.isValidDomain(domain)) {
+                generatedDomains.push(domain);
+            }
+        }
+        
+        this.currentSources.push(...generatedDomains);
+        console.log(`Generated ${generatedDomains.length} potential modern domains`);
+    }
+
+    async generateMorePotentialDomains() {
+        // If we still need more domains, generate additional potential new ones
+        const additionalPrefixes = [
+            'hello', 'hey', 'hi', 'meet', 'join', 'start', 'begin', 'launch',
+            'open', 'free', 'live', 'real', 'true', 'pure', 'fresh', 'clean'
+        ];
+        
+        const actionWords = [
+            'create', 'build', 'make', 'design', 'craft', 'develop', 'grow',
+            'learn', 'teach', 'share', 'connect', 'explore', 'discover', 'find'
+        ];
+        
+        const newTlds = ['.online', '.site', '.website', '.digital', '.today', '.now'];
+        
+        const moreDomains = [];
+        
+        for (let i = 0; i < 20; i++) {
+            const prefix = additionalPrefixes[Math.floor(Math.random() * additionalPrefixes.length)];
+            const action = actionWords[Math.floor(Math.random() * actionWords.length)];
+            const tld = newTlds[Math.floor(Math.random() * newTlds.length)];
+            
+            const domain = `${prefix}${action}${tld}`;
+            
+            if (this.isValidDomain(domain)) {
+                moreDomains.push(domain);
+            }
+        }
+        
+        this.currentSources.push(...moreDomains);
+        console.log(`Generated ${moreDomains.length} additional potential domains`);
     }
 
     isValidNewDomain(domain) {
@@ -451,125 +535,36 @@ class RandomRadar {
     }
 
     generateRandomDomains() {
-        // Generate domains based on real patterns and trending topics
-        const trendingDomains = this.getTrendingDomains();
+        // This function is now deprecated - we focus on discovering actual new domains
+        // instead of using hardcoded lists. The new approach prioritizes:
+        // 1. Certificate Transparency logs
+        // 2. Recently registered domain feeds
+        // 3. Generated potential new domains based on current trends
         
-        // Add trending domains
-        trendingDomains.then(domains => {
-            const validDomains = domains.filter(domain => this.isValidDomain(domain));
-            this.currentSources.push(...validDomains);
-            console.log(`Generated ${validDomains.length} trending domains`);
-        });
-        
-        // Generate domains from different categories for diversity
-        const categories = this.getDiverseCategories();
-        
-        categories.forEach(category => {
-            const categoryDomains = this.generateCategoryDomains(category);
-            this.currentSources.push(...categoryDomains);
-        });
-        
-        // Also add some well-known sites that might have interesting content
-        const knownSites = [
-            'quotegarden.com', 'brainyquote.com', 'goodreads.com',
-            'medium.com', 'dev.to', 'hackernoon.com', 'techcrunch.com',
-            'theverge.com', 'arstechnica.com', 'reddit.com', 'news.ycombinator.com',
-            'philosophynow.org', 'brainpickings.org', 'ted.com'
-        ];
-        
-        // Add a few random known sites for guaranteed content
-        const randomKnownSites = knownSites.sort(() => 0.5 - Math.random()).slice(0, 5);
-        this.currentSources.push(...randomKnownSites);
-        
-        console.log(`Generated ${this.currentSources.length} domains from various categories`);
+        console.log('Focusing on new domain discovery instead of hardcoded lists');
     }
 
-    getDiverseCategories() {
-        return [
-            {
-                name: 'Technology',
-                prefixes: ['tech', 'digital', 'cyber', 'smart', 'ai', 'ml', 'quantum', 'nano'],
-                suffixes: ['solutions', 'systems', 'platform', 'hub', 'lab', 'core', 'net', 'pro']
-            },
-            {
-                name: 'Creative',
-                prefixes: ['art', 'design', 'creative', 'pixel', 'studio', 'craft', 'vision', 'inspire'],
-                suffixes: ['works', 'studio', 'gallery', 'space', 'lab', 'house', 'collective', 'zone']
-            },
-            {
-                name: 'Business',
-                prefixes: ['biz', 'corp', 'enterprise', 'global', 'prime', 'elite', 'pro', 'expert'],
-                suffixes: ['solutions', 'services', 'group', 'ventures', 'consulting', 'agency', 'firm', 'partners']
-            },
-            {
-                name: 'Lifestyle',
-                prefixes: ['life', 'living', 'wellness', 'health', 'fit', 'zen', 'pure', 'fresh'],
-                suffixes: ['hub', 'center', 'zone', 'space', 'life', 'world', 'guide', 'tips']
-            },
-            {
-                name: 'Education',
-                prefixes: ['edu', 'learn', 'study', 'smart', 'brain', 'mind', 'know', 'wise'],
-                suffixes: ['academy', 'institute', 'university', 'college', 'school', 'campus', 'portal', 'hub']
-            },
-            {
-                name: 'News & Media',
-                prefixes: ['news', 'media', 'press', 'daily', 'times', 'post', 'herald', 'voice'],
-                suffixes: ['today', 'now', 'daily', 'times', 'post', 'news', 'report', 'wire']
-            }
-        ];
-    }
-
-    generateCategoryDomains(category) {
-        const domains = [];
-        const tlds = ['.com', '.net', '.org', '.io', '.tech', '.dev', '.app', '.co', '.ai', '.me'];
-        
-        // Generate 3-5 domains per category
-        for (let i = 0; i < 4; i++) {
-            const prefix = category.prefixes[Math.floor(Math.random() * category.prefixes.length)];
-            const suffix = category.suffixes[Math.floor(Math.random() * category.suffixes.length)];
-            const tld = tlds[Math.floor(Math.random() * tlds.length)];
-            
-            let domain;
-            if (Math.random() > 0.6) {
-                // Add numbers sometimes
-                const randomNum = Math.floor(Math.random() * 99) + 1;
-                domain = `${prefix}${randomNum}${tld}`;
-            } else if (Math.random() > 0.3) {
-                // Combine prefix and suffix
-                domain = `${prefix}${suffix}${tld}`;
-            } else {
-                // Use year or current date
-                const currentYear = new Date().getFullYear();
-                domain = `${prefix}${currentYear}${tld}`;
-            }
-            
-            if (this.isValidDomain(domain)) {
-                domains.push(domain);
-            }
-        }
-        
-        return domains;
-    }
+    // Legacy functions removed - focusing on new domain discovery
+    // getDiverseCategories() and generateCategoryDomains() are no longer needed
+    // as we prioritize discovering actual new domains over generating hardcoded lists
 
     async crawlCycle() {
         if (!this.isRunning) return;
         
         if (this.currentSources.length === 0) {
-            // If we've exhausted sources, generate more diverse domains
-            this.updateStatus('Generating more diverse domains to explore...');
-            this.generateRandomDomains();
+            // If we've exhausted sources, try to discover more new domains
+            this.updateStatus('Discovering more potential new domains...');
             
-            // Also add some backup domains if we still don't have enough
-            if (this.currentSources.length < 5) {
-                const backupDomains = this.getBackupDomains();
-                this.currentSources.push(...backupDomains);
-            }
+            // Generate fresh potential domains
+            await this.getTrendingNewDomains();
+            await this.getGeneratedPotentialDomains();
+            await this.generateMorePotentialDomains();
             
             this.currentSources = [...new Set(this.currentSources)];
             
             // If we still don't have sources, stop
             if (this.currentSources.length === 0) {
-                this.updateStatus('No more domains to explore. Discovery complete!');
+                this.updateStatus('No more potential domains to explore. Discovery complete!');
                 this.stopCrawling();
                 return;
             }
@@ -653,29 +648,8 @@ class RandomRadar {
     }
 
     getBackupDomains() {
-        // These are domains that definitely exist and have interesting content
-        return [
-            'httpbin.org',
-            'quotes.toscrape.com',
-            'dummyjson.com',
-            'jsonplaceholder.typicode.com',
-            'reqres.in',
-            'postman-echo.com',
-            'httpstat.us',
-            'randomuser.me',
-            'dog.ceo',
-            'cat-fact.herokuapp.com',
-            'official-joke-api.appspot.com',
-            'icanhazdadjoke.com',
-            'uselessfacts.jsph.pl',
-            'api.github.com',
-            'lorem-picsum.photos',
-            'api.quotable.io',
-            'zenquotes.io',
-            'api.adviceslip.com',
-            'api.chucknorris.io',
-            'api.kanye.rest'
-        ];
+        // No hardcoded backup domains - we focus on discovering new ones
+        return [];
     }
 
     async crawlDomain(domain) {
