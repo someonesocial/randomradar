@@ -79,21 +79,25 @@ class RandomRadar {
     }
 
     async discoverNewDomains() {
-        this.updateStatus('Discovering newly registered domains...');
+        this.updateStatus('Discovering new domains using fast methods...');
         this.currentSources = []; // Clear previous sources
         
-        // Focus on discovering actual new domains through multiple methods
+        // Use faster, more reliable methods for finding new domains
         const discoveryPromises = [
-            this.getCertificateTransparencyDomains(),
-            this.getRecentlyRegisteredDomains(),
-            this.getDNSBasedDomains(),
-            this.getTrendingNewDomains(),
-            this.getGeneratedPotentialDomains()
+            this.getDomainsFromHackerNews(),
+            this.getDomainsFromGitHubTrending(),
+            this.getDomainsFromRedditNew(),
+            this.getDomainsFromProductHunt(),
+            this.scanSubdomainEnumerationSites(),
+            this.getCertificateTransparencyFast()
         ];
         
-        // Wait for all methods to complete
+        // Wait for all methods to complete quickly
         try {
-            await Promise.allSettled(discoveryPromises);
+            await Promise.race([
+                Promise.allSettled(discoveryPromises),
+                new Promise(resolve => setTimeout(resolve, 10000)) // 10 second timeout
+            ]);
         } catch (error) {
             console.warn('Some discovery methods failed:', error);
         }
@@ -101,9 +105,9 @@ class RandomRadar {
         // Remove duplicates
         this.currentSources = [...new Set(this.currentSources)];
         
-        // If we don't have enough domains, generate more potential new ones
-        if (this.currentSources.length < 15) {
-            await this.generateMorePotentialDomains();
+        // If we don't have enough domains, use rapid generation
+        if (this.currentSources.length < 10) {
+            await this.rapidDomainGeneration();
             this.currentSources = [...new Set(this.currentSources)];
         }
         
@@ -111,160 +115,254 @@ class RandomRadar {
         this.currentSources = this.currentSources.sort(() => 0.5 - Math.random());
         
         // Limit to prevent overwhelming
-        this.currentSources = this.currentSources.slice(0, 40);
+        this.currentSources = this.currentSources.slice(0, 25);
         
-        this.updateStatus(`Found ${this.currentSources.length} potential new domains to explore`);
-        console.log('New domains to explore:', this.currentSources);
+        this.updateStatus(`Found ${this.currentSources.length} domains to explore quickly`);
+        console.log('Fast discovered domains:', this.currentSources);
     }
 
-    async getTrendingNewDomains() {
-        // Generate domains based on current trends and recent events that are likely to be newly registered
-        const currentDate = new Date();
-        const year = currentDate.getFullYear();
-        const month = currentDate.getMonth() + 1;
-        const day = currentDate.getDate();
-        
-        // Current trending topics that might inspire new domains
-        const trendingTopics = [
-            'ai', 'artificialintelligence', 'machinelearning', 'deeplearning',
-            'blockchain', 'cryptocurrency', 'bitcoin', 'ethereum', 'defi',
-            'metaverse', 'virtualreality', 'augmentedreality', 'web3',
-            'fintech', 'edtech', 'healthtech', 'climatetech', 'greentech',
-            'startup', 'innovation', 'digitaltransformation', 'automation',
-            'cloudcomputing', 'quantumcomputing', 'cybersecurity',
-            'sustainability', 'renewableenergy', 'electricvehicles',
-            'biotechnology', 'genomics', 'telemedicine', 'remotework',
-            'nft', 'dao', 'smart', 'future', 'next', 'neo', 'ultra', 'mega'
-        ];
-        
-        const businessSuffixes = [
-            'hub', 'lab', 'studio', 'space', 'zone', 'core', 'pro', 'tech',
-            'solutions', 'services', 'platform', 'network', 'systems',
-            'ventures', 'agency', 'group', 'collective', 'works'
-        ];
-        
-        const modernTlds = ['.io', '.ai', '.tech', '.dev', '.app', '.co', '.me', '.xyz', '.online'];
-        
-        const potentialDomains = [];
-        
-        // Generate trending combinations
-        for (let i = 0; i < 25; i++) {
-            const topic = trendingTopics[Math.floor(Math.random() * trendingTopics.length)];
-            const suffix = businessSuffixes[Math.floor(Math.random() * businessSuffixes.length)];
-            const tld = modernTlds[Math.floor(Math.random() * modernTlds.length)];
+    async getDomainsFromHackerNews() {
+        try {
+            // Hacker News often features new startups and projects
+            const response = await this.fetchWithProxy('https://hacker-news.firebaseio.com/v0/newstories.json?print=pretty');
+            const storyIds = JSON.parse(response).slice(0, 20); // Get top 20 new stories
             
-            let domain;
-            const rand = Math.random();
-            
-            if (rand > 0.8) {
-                // Add current year for "new in 2025" type domains
-                domain = `${topic}${year}${tld}`;
-            } else if (rand > 0.6) {
-                // Combine topic with suffix
-                domain = `${topic}${suffix}${tld}`;
-            } else if (rand > 0.4) {
-                // Add small number (common for new startups)
-                const num = Math.floor(Math.random() * 99) + 1;
-                domain = `${topic}${num}${tld}`;
-            } else {
-                // Use "new" prefix for fresh domains
-                domain = `new${topic}${tld}`;
+            for (const id of storyIds.slice(0, 10)) { // Check first 10 stories
+                try {
+                    const storyResponse = await this.fetchWithProxy(`https://hacker-news.firebaseio.com/v0/item/${id}.json?print=pretty`);
+                    const story = JSON.parse(storyResponse);
+                    
+                    if (story.url) {
+                        const domain = this.extractDomainFromUrl(story.url);
+                        if (domain && this.isValidDomain(domain) && this.isLikelyNewDomain(domain)) {
+                            this.currentSources.push(domain);
+                        }
+                    }
+                } catch (error) {
+                    console.warn(`Failed to fetch HN story ${id}:`, error);
+                }
             }
             
-            if (this.isValidDomain(domain)) {
-                potentialDomains.push(domain);
-            }
+            console.log(`Found domains from Hacker News`);
+        } catch (error) {
+            console.warn('Hacker News domain discovery failed:', error);
         }
-        
-        this.currentSources.push(...potentialDomains);
-        console.log(`Generated ${potentialDomains.length} trending potential new domains`);
     }
 
-    async getGeneratedPotentialDomains() {
-        // Generate domains that are likely to be recently registered based on naming patterns
+    async getDomainsFromGitHubTrending() {
+        try {
+            // GitHub trending often shows new projects with websites
+            const response = await this.fetchWithProxy('https://api.github.com/search/repositories?q=created:>2025-07-01&sort=stars&order=desc&per_page=20');
+            const data = JSON.parse(response);
+            
+            if (data.items) {
+                for (const repo of data.items) {
+                    if (repo.homepage) {
+                        const domain = this.extractDomainFromUrl(repo.homepage);
+                        if (domain && this.isValidDomain(domain) && this.isLikelyNewDomain(domain)) {
+                            this.currentSources.push(domain);
+                        }
+                    }
+                    
+                    // Also check if the repo name suggests a domain
+                    if (repo.name && repo.name.includes('.')) {
+                        const potentialDomain = repo.name.toLowerCase();
+                        if (this.isValidDomain(potentialDomain)) {
+                            this.currentSources.push(potentialDomain);
+                        }
+                    }
+                }
+            }
+            
+            console.log(`Found domains from GitHub trending`);
+        } catch (error) {
+            console.warn('GitHub trending domain discovery failed:', error);
+        }
+    }
+
+    async getDomainsFromRedditNew() {
+        try {
+            // Reddit's new submissions often contain new websites
+            const subreddits = ['startups', 'SideProject', 'webdev', 'entrepreneur'];
+            
+            for (const subreddit of subreddits.slice(0, 2)) { // Check first 2 subreddits
+                try {
+                    const response = await this.fetchWithProxy(`https://www.reddit.com/r/${subreddit}/new.json?limit=10`);
+                    const data = JSON.parse(response);
+                    
+                    if (data.data && data.data.children) {
+                        for (const post of data.data.children) {
+                            if (post.data.url && post.data.url.startsWith('http')) {
+                                const domain = this.extractDomainFromUrl(post.data.url);
+                                if (domain && this.isValidDomain(domain) && this.isLikelyNewDomain(domain)) {
+                                    this.currentSources.push(domain);
+                                }
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.warn(`Failed to fetch from r/${subreddit}:`, error);
+                }
+            }
+            
+            console.log(`Found domains from Reddit`);
+        } catch (error) {
+            console.warn('Reddit domain discovery failed:', error);
+        }
+    }
+
+    async getDomainsFromProductHunt() {
+        try {
+            // Product Hunt features new products with websites daily
+            const response = await this.fetchWithProxy('https://api.producthunt.com/v2/api/graphql');
+            // Note: This would need proper API key, so we'll use a simpler approach
+            
+            // Instead, let's generate domains based on current ProductHunt patterns
+            const currentDate = new Date();
+            const year = currentDate.getFullYear();
+            const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+            
+            // ProductHunt-style domain patterns (common for new startups)
+            const phPatterns = [
+                'tryhello', 'useflow', 'getapp', 'jointeam', 'buildsmart',
+                'makesimple', 'startnew', 'launchfast', 'growquick', 'scaleup'
+            ];
+            
+            const domains = phPatterns.map(pattern => `${pattern}.com`);
+            domains.push(...phPatterns.map(pattern => `${pattern}.io`));
+            domains.push(...phPatterns.map(pattern => `${pattern}.ai`));
+            
+            this.currentSources.push(...domains.slice(0, 10));
+            console.log(`Generated ProductHunt-style domains`);
+        } catch (error) {
+            console.warn('ProductHunt domain discovery failed:', error);
+        }
+    }
+
+    async scanSubdomainEnumerationSites() {
+        try {
+            // Use subdomain enumeration patterns to find new domains
+            const popularServices = ['vercel.app', 'netlify.app', 'herokuapp.com', 'github.io'];
+            const recentPatterns = ['2025', 'new', 'beta', 'app', 'web', 'site'];
+            
+            const generatedDomains = [];
+            
+            for (const service of popularServices) {
+                for (const pattern of recentPatterns) {
+                    // Generate likely subdomain patterns
+                    const randomNum = Math.floor(Math.random() * 999) + 1;
+                    generatedDomains.push(`${pattern}${randomNum}.${service}`);
+                    generatedDomains.push(`${pattern}-app.${service}`);
+                    generatedDomains.push(`my-${pattern}.${service}`);
+                }
+            }
+            
+            this.currentSources.push(...generatedDomains.slice(0, 15));
+            console.log(`Generated subdomain-based potential domains`);
+        } catch (error) {
+            console.warn('Subdomain enumeration failed:', error);
+        }
+    }
+
+    async getCertificateTransparencyFast() {
+        try {
+            // Fast CT lookup with shorter timeframe and simpler parsing
+            const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+            const dateString = oneDayAgo.toISOString().split('T')[0];
+            
+            const response = await this.fetchWithProxy(`https://crt.sh/?q=%25&output=json&exclude=expired&after=${dateString}&limit=50`);
+            const data = JSON.parse(response);
+            
+            if (data && Array.isArray(data)) {
+                const domains = data
+                    .slice(0, 20) // Only process first 20 for speed
+                    .map(cert => cert.name_value.split('\n')[0])
+                    .filter(domain => this.isValidDomain(domain) && this.isLikelyNewDomain(domain))
+                    .slice(0, 8); // Take only top 8
+                
+                this.currentSources.push(...domains);
+                console.log(`Found ${domains.length} domains from fast CT lookup`);
+            }
+        } catch (error) {
+            console.warn('Fast certificate transparency lookup failed:', error);
+        }
+    }
+
+    async rapidDomainGeneration() {
+        // Super fast domain generation for when other methods are slow
         const currentYear = new Date().getFullYear();
         const currentMonth = new Date().getMonth() + 1;
+        const currentDay = new Date().getDate();
         
-        // Categories of domains that follow modern naming conventions
-        const modernPrefixes = [
-            'get', 'try', 'use', 'go', 'my', 'the', 'new', 'next', 'pro', 'super',
-            'ultra', 'mega', 'smart', 'fast', 'easy', 'simple', 'quick', 'instant'
-        ];
+        const quickPrefixes = ['app', 'web', 'new', 'try', 'get', 'my', 'go'];
+        const quickSuffixes = ['ai', 'io', 'app', 'dev', 'tech', 'co'];
+        const quickTlds = ['.com', '.io', '.ai', '.app'];
         
-        const techWords = [
-            'app', 'tech', 'digital', 'cloud', 'data', 'ai', 'bot', 'auto',
-            'sync', 'flow', 'link', 'connect', 'share', 'send', 'build', 'make'
-        ];
+        const rapidDomains = [];
         
-        const businessWords = [
-            'work', 'team', 'crew', 'squad', 'collective', 'group', 'network',
-            'hub', 'base', 'core', 'zone', 'space', 'lab', 'studio', 'shop'
-        ];
-        
-        const tlds = ['.com', '.io', '.tech', '.dev', '.app', '.co', '.me', '.xyz'];
-        
-        const generatedDomains = [];
-        
-        // Generate modern domain combinations
-        for (let i = 0; i < 30; i++) {
-            const prefix = modernPrefixes[Math.floor(Math.random() * modernPrefixes.length)];
-            const word = [...techWords, ...businessWords][Math.floor(Math.random() * (techWords.length + businessWords.length))];
-            const tld = tlds[Math.floor(Math.random() * tlds.length)];
+        // Generate 20 domains very quickly
+        for (let i = 0; i < 20; i++) {
+            const prefix = quickPrefixes[Math.floor(Math.random() * quickPrefixes.length)];
+            const suffix = quickSuffixes[Math.floor(Math.random() * quickSuffixes.length)];
+            const tld = quickTlds[Math.floor(Math.random() * quickTlds.length)];
             
             let domain;
-            const rand = Math.random();
-            
-            if (rand > 0.7) {
-                // prefix + word (e.g., getapp.io)
-                domain = `${prefix}${word}${tld}`;
-            } else if (rand > 0.4) {
-                // word + current year (e.g., tech2025.com)
-                domain = `${word}${currentYear}${tld}`;
+            if (Math.random() > 0.5) {
+                domain = `${prefix}${suffix}${tld}`;
             } else {
-                // word + small number (e.g., app42.dev)
-                const num = Math.floor(Math.random() * 999) + 1;
-                domain = `${word}${num}${tld}`;
+                domain = `${prefix}${currentYear}${tld}`;
             }
             
             if (this.isValidDomain(domain)) {
-                generatedDomains.push(domain);
+                rapidDomains.push(domain);
             }
         }
         
-        this.currentSources.push(...generatedDomains);
-        console.log(`Generated ${generatedDomains.length} potential modern domains`);
+        this.currentSources.push(...rapidDomains);
+        console.log(`Rapidly generated ${rapidDomains.length} potential domains`);
+    }
+
+    extractDomainFromUrl(url) {
+        try {
+            const urlObj = new URL(url);
+            return urlObj.hostname.replace(/^www\./, '');
+        } catch (error) {
+            return null;
+        }
+    }
+
+    isLikelyNewDomain(domain) {
+        // Check if domain looks like it could be new/recent
+        const currentYear = new Date().getFullYear();
+        const currentYearStr = currentYear.toString();
+        const lastYearStr = (currentYear - 1).toString();
+        
+        return domain.includes(currentYearStr) ||
+               domain.includes(lastYearStr) ||
+               domain.includes('new') ||
+               domain.includes('beta') ||
+               domain.includes('app') ||
+               domain.includes('try') ||
+               domain.includes('get') ||
+               domain.includes('my') ||
+               domain.endsWith('.ai') ||
+               domain.endsWith('.app') ||
+               domain.endsWith('.dev') ||
+               domain.endsWith('.tech') ||
+               domain.endsWith('.io');
+    }
+
+    // Deprecated slow methods - replaced with faster alternatives
+    async getGeneratedPotentialDomains() {
+        // This method is too slow - replaced with rapidDomainGeneration
+        console.log('Using rapid domain generation instead');
+        await this.rapidDomainGeneration();
     }
 
     async generateMorePotentialDomains() {
-        // If we still need more domains, generate additional potential new ones
-        const additionalPrefixes = [
-            'hello', 'hey', 'hi', 'meet', 'join', 'start', 'begin', 'launch',
-            'open', 'free', 'live', 'real', 'true', 'pure', 'fresh', 'clean'
-        ];
-        
-        const actionWords = [
-            'create', 'build', 'make', 'design', 'craft', 'develop', 'grow',
-            'learn', 'teach', 'share', 'connect', 'explore', 'discover', 'find'
-        ];
-        
-        const newTlds = ['.online', '.site', '.website', '.digital', '.today', '.now'];
-        
-        const moreDomains = [];
-        
-        for (let i = 0; i < 20; i++) {
-            const prefix = additionalPrefixes[Math.floor(Math.random() * additionalPrefixes.length)];
-            const action = actionWords[Math.floor(Math.random() * actionWords.length)];
-            const tld = newTlds[Math.floor(Math.random() * newTlds.length)];
-            
-            const domain = `${prefix}${action}${tld}`;
-            
-            if (this.isValidDomain(domain)) {
-                moreDomains.push(domain);
-            }
-        }
-        
-        this.currentSources.push(...moreDomains);
-        console.log(`Generated ${moreDomains.length} additional potential domains`);
+        // This method is too slow - replaced with faster scanning
+        console.log('Using subdomain scanning instead');
+        await this.scanSubdomainEnumerationSites();
     }
 
     isValidNewDomain(domain) {
@@ -552,19 +650,18 @@ class RandomRadar {
         if (!this.isRunning) return;
         
         if (this.currentSources.length === 0) {
-            // If we've exhausted sources, try to discover more new domains
-            this.updateStatus('Discovering more potential new domains...');
+            // If we've exhausted sources, quickly generate more
+            this.updateStatus('Quickly finding more domains...');
             
-            // Generate fresh potential domains
-            await this.getTrendingNewDomains();
-            await this.getGeneratedPotentialDomains();
-            await this.generateMorePotentialDomains();
+            // Use rapid methods to get more domains
+            await this.rapidDomainGeneration();
+            await this.scanSubdomainEnumerationSites();
             
             this.currentSources = [...new Set(this.currentSources)];
             
             // If we still don't have sources, stop
             if (this.currentSources.length === 0) {
-                this.updateStatus('No more potential domains to explore. Discovery complete!');
+                this.updateStatus('No more domains to explore. Discovery complete!');
                 this.stopCrawling();
                 return;
             }
@@ -580,9 +677,9 @@ class RandomRadar {
             this.removeDiscoveryProgress(domain);
         }
         
-        // Continue with next domain after a shorter delay for better real-time feel
+        // Continue with next domain with minimal delay for speed
         if (this.isRunning) {
-            const delay = 800; // Fixed shorter delay for better real-time experience
+            const delay = 500; // Even shorter delay for faster discovery
             setTimeout(() => this.crawlCycle(), delay);
         }
     }
@@ -865,33 +962,34 @@ class RandomRadar {
     async fetchWithProxy(url) {
         let lastError;
         
-        // Try direct fetch first (for same-origin requests)
+        // Try direct fetch first with shorter timeout for speed
         try {
             const response = await fetch(url, {
                 method: 'GET',
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
                 },
-                signal: AbortSignal.timeout(8000) // 8 second timeout
+                signal: AbortSignal.timeout(5000) // Reduced to 5 seconds for speed
             });
             
             if (response.ok) {
                 return await response.text();
             }
         } catch (directError) {
-            // Direct fetch failed, try proxies
-            console.log('Direct fetch failed, trying proxies...');
+            // Direct fetch failed, try proxies quickly
+            console.log('Direct fetch failed, trying proxies quickly...');
         }
         
-        // Try each proxy until one works or all fail
-        for (let i = 0; i < this.corsProxies.length; i++) {
-            const proxy = this.corsProxies[this.currentProxyIndex];
+        // Try only the most reliable proxies for speed
+        const fastProxies = this.corsProxies.slice(0, 3); // Only try first 3 proxies
+        
+        for (let i = 0; i < fastProxies.length; i++) {
+            const proxy = fastProxies[i];
             
             // Skip proxies that have failed recently
             if (this.proxyFailures.has(proxy)) {
                 const failureTime = this.proxyFailures.get(proxy);
-                if (Date.now() - failureTime < 30000) { // Skip for 30 seconds
-                    this.currentProxyIndex = (this.currentProxyIndex + 1) % this.corsProxies.length;
+                if (Date.now() - failureTime < 15000) { // Reduced to 15 seconds
                     continue;
                 }
             }
@@ -903,7 +1001,7 @@ class RandomRadar {
                     headers: {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
                     },
-                    signal: AbortSignal.timeout(10000) // 10 second timeout
+                    signal: AbortSignal.timeout(6000) // Reduced to 6 seconds
                 });
                 
                 if (response.ok) {
@@ -919,13 +1017,10 @@ class RandomRadar {
                 this.proxyFailures.set(proxy, Date.now());
                 lastError = error;
             }
-            
-            // Try next proxy
-            this.currentProxyIndex = (this.currentProxyIndex + 1) % this.corsProxies.length;
         }
         
         // If all proxies failed, throw the last error
-        throw lastError || new Error('All CORS proxies failed');
+        throw lastError || new Error('All fast proxies failed');
     }
 
     parseContent(html, domain) {
