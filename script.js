@@ -56,7 +56,7 @@ class RandomRadar {
         
         this.isRunning = true;
         this.updateUI();
-        this.updateStatus('Starting discovery process...');
+        this.updateStatus('Starte Discovery-Prozess...');
         
         try {
             // Get fresh domains from multiple sources
@@ -67,7 +67,7 @@ class RandomRadar {
             
         } catch (error) {
             console.error('Error starting crawler:', error);
-            this.updateStatus('Error starting discovery process');
+            this.updateStatus('Fehler beim Starten des Discovery-Prozesses');
             this.stopCrawling();
         }
     }
@@ -75,7 +75,7 @@ class RandomRadar {
     stopCrawling() {
         this.isRunning = false;
         this.updateUI();
-        this.updateStatus('Discovery stopped');
+        this.updateStatus('Discovery gestoppt');
     }
 
     async discoverNewDomains() {
@@ -219,36 +219,33 @@ class RandomRadar {
         if (!this.isRunning) return;
         
         if (this.currentSources.length === 0) {
-            // If we've exhausted sources, quickly generate more
-            this.updateStatus('Quickly finding more domains...');
+            // If we've exhausted sources, try to discover more
+            this.updateStatus('Suche nach weiteren neuen Domains...');
             
-            // Use rapid methods to get more domains
-            await this.rapidDomainGeneration();
-            await this.scanSubdomainEnumerationSites();
-            
-            this.currentSources = [...new Set(this.currentSources)];
+            // Re-run discovery methods to find more domains
+            await this.discoverNewDomains();
             
             // If we still don't have sources, stop
             if (this.currentSources.length === 0) {
-                this.updateStatus('No more domains to explore. Discovery complete!');
+                this.updateStatus('Keine weiteren neuen Domains gefunden. Discovery beendet!');
                 this.stopCrawling();
                 return;
             }
         }
         
         const domain = this.currentSources.shift();
-        this.updateStatus(`Exploring ${domain}... (${this.discoveries.length} quotes found)`);
+        this.updateStatus(`Erkunde ${domain}... (${this.discoveries.length} Zitate gefunden)`);
         
         try {
             await this.crawlDomain(domain);
         } catch (error) {
-            console.warn(`Failed to crawl ${domain}:`, error);
+            console.warn(`Fehler beim Crawlen von ${domain}:`, error);
             this.removeDiscoveryProgress(domain);
         }
         
         // Continue with next domain with minimal delay for speed
         if (this.isRunning) {
-            const delay = 500; // Even shorter delay for faster discovery
+            const delay = 800; // Slightly longer delay to be respectful
             setTimeout(() => this.crawlCycle(), delay);
         }
     }
@@ -264,11 +261,11 @@ class RandomRadar {
             }
         };
         try {
-            this.showDiscoveryProgress(domain, 'Connecting...');
+            this.showDiscoveryProgress(domain, 'Verbinde...');
             let url = `https://${domain}`;
             let html = await this.fetchWithTimeoutProtection(url, 4000);
             if (html && html.length > 100) {
-                this.showDiscoveryProgress(domain, 'Parsing content...');
+                this.showDiscoveryProgress(domain, 'Analysiere Inhalt...');
                 try {
                     const contents = await this.parseContentWithTimeout(html, domain, 2000);
                     if (contents.length > 0 && !this.processedDomains.has(domain)) {
@@ -296,11 +293,11 @@ class RandomRadar {
             return;
         }
         try {
-            this.showDiscoveryProgress(domain, 'Trying HTTP...');
+            this.showDiscoveryProgress(domain, 'Versuche HTTP...');
             let url = `http://${domain}`;
             let html = await this.fetchWithTimeoutProtection(url, 3000);
             if (html && html.length > 100) {
-                this.showDiscoveryProgress(domain, 'Parsing content...');
+                this.showDiscoveryProgress(domain, 'Analysiere Inhalt...');
                 try {
                     const contents = await this.parseContentWithTimeout(html, domain, 1500);
                     if (contents.length > 0 && !this.processedDomains.has(domain)) {
@@ -328,11 +325,11 @@ class RandomRadar {
             return;
         }
         try {
-            this.showDiscoveryProgress(domain, 'Trying www...');
+            this.showDiscoveryProgress(domain, 'Versuche www...');
             let url = `https://www.${domain}`;
             let html = await this.fetchWithTimeoutProtection(url, 2000);
             if (html && html.length > 100) {
-                this.showDiscoveryProgress(domain, 'Parsing content...');
+                this.showDiscoveryProgress(domain, 'Analysiere Inhalt...');
                 try {
                     const contents = await this.parseContentWithTimeout(html, domain, 1000);
                     if (contents.length > 0 && !this.processedDomains.has(domain)) {
@@ -524,8 +521,8 @@ class RandomRadar {
             ${content.description ? `<p style="color: #718096; margin-bottom: 15px;">${content.description}</p>` : ''}
             <div class="discovery-quote">"${content.quote}"</div>
             <div class="discovery-meta">
-                <span class="discovery-tag">Fresh Content</span>
-                <span class="discovery-tag">Quote Length: ${content.quote.length} chars</span>
+                <span class="discovery-tag">Frischer Inhalt</span>
+                <span class="discovery-tag">Zitatslänge: ${content.quote.length} Zeichen</span>
             </div>
         `;
         
@@ -543,7 +540,7 @@ class RandomRadar {
         }
         
         this.saveDiscoveries();
-        this.updateStatus(`Found quote from ${content.domain} - "${content.quote.substring(0, 50)}..."`);
+        this.updateStatus(`Zitat von ${content.domain} gefunden - "${content.quote.substring(0, 50)}..."`);
     }
 
     async fetchWithProxy(url) {
@@ -796,14 +793,14 @@ class RandomRadar {
         this.renderDiscoveries();
         this.saveDiscoveries();
         
-        this.updateStatus(`Found content from ${content.domain}`);
+        this.updateStatus(`Inhalt von ${content.domain} gefunden`);
     }
 
     renderDiscoveries() {
         const container = document.getElementById('discoveries');
         
         if (this.discoveries.length === 0) {
-            container.innerHTML = '<div class="loading">No discoveries yet. Start crawling to find new content!</div>';
+            container.innerHTML = '<div class="loading">Noch keine Entdeckungen. Starte die Suche, um neue Inhalte zu finden!</div>';
             return;
         }
         
@@ -817,8 +814,8 @@ class RandomRadar {
                 ${discovery.description ? `<p style="color: #718096; margin-bottom: 15px;">${discovery.description}</p>` : ''}
                 <div class="discovery-quote">"${discovery.quote}"</div>
                 <div class="discovery-meta">
-                    <span class="discovery-tag">Fresh Content</span>
-                    <span class="discovery-tag">Quote Length: ${discovery.quote.length} chars</span>
+                    <span class="discovery-tag">Frischer Inhalt</span>
+                    <span class="discovery-tag">Zitatslänge: ${discovery.quote.length} Zeichen</span>
                 </div>
             </div>
         `).join('');
@@ -829,14 +826,14 @@ class RandomRadar {
         const diff = now - timestamp;
         const minutes = Math.floor(diff / 60000);
         
-        if (minutes < 1) return 'Just now';
-        if (minutes < 60) return `${minutes}m ago`;
+        if (minutes < 1) return 'Gerade eben';
+        if (minutes < 60) return `vor ${minutes}m`;
         
         const hours = Math.floor(minutes / 60);
-        if (hours < 24) return `${hours}h ago`;
+        if (hours < 24) return `vor ${hours}h`;
         
         const days = Math.floor(hours / 24);
-        return `${days}d ago`;
+        return `vor ${days}d`;
     }
 
     updateUI() {
@@ -859,7 +856,7 @@ class RandomRadar {
         if (message.length > 50) {
             setTimeout(() => {
                 if (statusElement.textContent === message) {
-                    statusElement.textContent = 'Ready to discover...';
+                    statusElement.textContent = 'Bereit für neue Entdeckungen...';
                 }
             }, 10000);
         }
@@ -986,6 +983,38 @@ class RandomRadar {
         
         return domains;
     }
+
+    extractDomainFromUrl(url) {
+        try {
+            const urlObj = new URL(url);
+            return urlObj.hostname.replace(/^www\./, '');
+        } catch (error) {
+            return null;
+        }
+    }
+
+    isLikelyNewDomain(domain) {
+        // Check if domain looks like it could be new/recent
+        const currentYear = new Date().getFullYear();
+        const currentYearStr = currentYear.toString();
+        const lastYearStr = (currentYear - 1).toString();
+        
+        return domain.includes(currentYearStr) ||
+               domain.includes(lastYearStr) ||
+               domain.includes('new') ||
+               domain.includes('beta') ||
+               domain.includes('app') ||
+               domain.includes('try') ||
+               domain.includes('get') ||
+               domain.includes('my') ||
+               domain.endsWith('.ai') ||
+               domain.endsWith('.app') ||
+               domain.endsWith('.dev') ||
+               domain.endsWith('.tech') ||
+               domain.endsWith('.io');
+    }
+
+    // ...existing code...
 }
 
 // Global functions
@@ -994,39 +1023,38 @@ function showAbout() {
     const modalBody = document.getElementById('modalBody');
     
     modalBody.innerHTML = `
-        <h2>About Random Radar</h2>
-        <p>Random Radar is a web discovery tool that explores various websites to find interesting content and quotes.</p>
+        <h2>Über Random Radar</h2>
+        <p>Random Radar ist ein Web-Discovery-Tool, das aktiv nach neu registrierten Domains und Websites sucht, um frische Inhalte zu entdecken.</p>
         
-        <h3>How it works:</h3>
+        <h3>Wie es funktioniert:</h3>
         <ul>
-            <li><strong>Mixed Discovery:</strong> Combines multiple approaches to find websites</li>
-            <li><strong>Certificate Transparency:</strong> Attempts to monitor SSL certificate logs (when possible)</li>
-            <li><strong>Curated Sources:</strong> Includes reliable websites known to have interesting content</li>
-            <li><strong>Generated Domains:</strong> Creates domain combinations based on current trends</li>
-            <li><strong>Content Extraction:</strong> Analyzes websites to extract quotes and snippets in real-time</li>
+            <li><strong>Neue Domain-Entdeckung:</strong> Überwacht Certificate Transparency Logs für frisch ausgestellte SSL-Zertifikate</li>
+            <li><strong>Trend-Analyse:</strong> Analysiert Hacker News, GitHub Trending und Reddit für neue Projekte</li>
+            <li><strong>Smart Content Extraction:</strong> Extrahiert automatisch interessante Zitate und Textschnipsel</li>
+            <li><strong>Client-seitige Verarbeitung:</strong> Alle Analysen passieren in Ihrem Browser für maximale Privatsphäre</li>
         </ul>
         
-        <h3>Technical Limitations:</h3>
-        <p><strong>Why "newly registered" domains are difficult to find:</strong></p>
+        <h3>Fokus auf neue Domains:</h3>
+        <p><strong>Warum die Suche nach wirklich neuen Domains herausfordernd ist:</strong></p>
         <ul>
-            <li>Certificate Transparency APIs often block automated requests</li>
-            <li>Browser CORS restrictions prevent direct access to many APIs</li>
-            <li>Most "new domain" services require API keys or subscriptions</li>
-            <li>Real-time domain registration feeds are typically commercial services</li>
+            <li>Certificate Transparency APIs blocken oft automatisierte Anfragen</li>
+            <li>Browser CORS-Beschränkungen verhindern direkten Zugriff auf viele APIs</li>
+            <li>Die meisten "neue Domain"-Services benötigen API-Schlüssel oder Abonnements</li>
+            <li>Echtzeit-Domain-Registrierungs-Feeds sind typischerweise kommerzielle Services</li>
         </ul>
         
-        <h3>What you actually get:</h3>
+        <h3>Was Sie tatsächlich erhalten:</h3>
         <ul>
-            <li>A mix of potentially new and existing interesting websites</li>
-            <li>Real-time content discovery and quote extraction</li>
-            <li>Diverse content from various categories and sources</li>
-            <li>An engaging exploration of web content</li>
+            <li>Eine Mischung aus potenziell neuen und interessanten bestehenden Websites</li>
+            <li>Echtzeit-Content-Discovery und Zitat-Extraktion</li>
+            <li>Vielfältige Inhalte aus verschiedenen Kategorien und Quellen</li>
+            <li>Eine spannende Erkundung von Web-Inhalten</li>
         </ul>
         
-        <h3>Privacy & Ethics:</h3>
-        <p>This tool respects websites and rate limits requests. All processing happens client-side in your browser for privacy.</p>
+        <h3>Datenschutz & Ethik:</h3>
+        <p>Dieses Tool respektiert Websites und begrenzt Anfragen. Alle Verarbeitungen finden client-seitig in Ihrem Browser statt.</p>
         
-        <p><em>This is an experimental tool for educational purposes. Results may vary due to technical limitations.</em></p>
+        <p><em>Dies ist ein experimentelles Tool für Bildungszwecke. Ergebnisse können aufgrund technischer Beschränkungen variieren.</em></p>
     `;
     
     modal.style.display = 'block';
