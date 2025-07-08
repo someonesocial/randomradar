@@ -79,17 +79,13 @@ class RandomRadar {
     }
 
     async discoverNewDomains() {
-        this.updateStatus('Entdecke neue Domains aus echten Quellen...');
+        this.updateStatus('Entdecke neue Domains aus funktionierenden Quellen...');
         this.currentSources = [];
         const discoveryPromises = [
             this.getDomainsFromHackerNews(),
             this.getDomainsFromGitHubTrending(),
             this.getDomainsFromRedditNew(),
-            this.getCertificateTransparencyFast(),
-            this.getDomainsFromWhoisDS(),
-            this.getDomainsFromNewlyRegisteredDomainsCom(),
-            this.getDomainsFromZonefilesIO(),
-            this.getDomainsFromNamerific()
+            this.getCertificateTransparencyFast()
         ];
         try {
             await Promise.race([
@@ -101,8 +97,8 @@ class RandomRadar {
         }
         this.currentSources = [...new Set(this.currentSources)].filter(domain => this.isValidDomain(domain));
         this.currentSources = this.currentSources.sort(() => 0.5 - Math.random()).slice(0, 30);
-        this.updateStatus(`Gefunden: ${this.currentSources.length} neue Domains aus echten Quellen`);
-        console.log('Domains aus echten Quellen:', this.currentSources);
+        this.updateStatus(`Gefunden: ${this.currentSources.length} neue Domains aus funktionierenden Quellen`);
+        console.log('Domains aus funktionierenden Quellen:', this.currentSources);
     }
 
     async getDomainsFromHackerNews() {
@@ -216,69 +212,6 @@ class RandomRadar {
             }
         } catch (error) {
             console.warn('Fast certificate transparency lookup failed:', error);
-        }
-    }
-
-    async getDomainsFromWhoisDS() {
-        try {
-            const response = await this.fetchWithProxy('https://whoisds.com/newly-registered-domains');
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(response, 'text/html');
-            const domainRegex = /\b[a-zA-Z0-9-]+\.[a-zA-Z]{2,}\b/g;
-            const text = doc.body.textContent;
-            const matches = text.match(domainRegex) || [];
-            this.currentSources.push(...matches.slice(0, 10));
-        } catch (error) {
-            console.warn('WhoisDS fehlgeschlagen:', error);
-        }
-    }
-
-    async getDomainsFromNewlyRegisteredDomainsCom() {
-        try {
-            const tlds = ['com', 'net', 'org'];
-            for (const tld of tlds) {
-                const url = `https://newly-registered-domains.com/tlds/${tld}`;
-                const response = await this.fetchWithProxy(url);
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(response, 'text/html');
-                const links = doc.querySelectorAll('a');
-                for (const link of links) {
-                    const domain = link.textContent.trim();
-                    if (this.isValidDomain(domain)) this.currentSources.push(domain);
-                }
-            }
-        } catch (error) {
-            console.warn('newly-registered-domains.com fehlgeschlagen:', error);
-        }
-    }
-
-    async getDomainsFromZonefilesIO() {
-        try {
-            const response = await this.fetchWithProxy('https://zonefiles.io/newly-registered-domains.json');
-            const data = JSON.parse(response);
-            if (Array.isArray(data)) {
-                this.currentSources.push(...data.slice(0, 20));
-            }
-        } catch (error) {
-            console.warn('zonefiles.io fehlgeschlagen:', error);
-        }
-    }
-
-    async getDomainsFromNamerific() {
-        try {
-            const response = await this.fetchWithProxy('https://www.namerific.com/newly-registered-domains');
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(response, 'text/html');
-            const rows = doc.querySelectorAll('table tr');
-            for (const row of rows) {
-                const cols = row.querySelectorAll('td');
-                if (cols.length > 0) {
-                    const domain = cols[0].textContent.trim();
-                    if (this.isValidDomain(domain)) this.currentSources.push(domain);
-                }
-            }
-        } catch (error) {
-            console.warn('Namerific fehlgeschlagen:', error);
         }
     }
 
