@@ -750,17 +750,22 @@ class RandomRadar {
     }
 
     async crawlDomain(domain) {
+        const startTime = Date.now();
+        const maxCrawlTime = 8000; // 8 seconds maximum per domain (reduced from 10)
+        
         try {
             // Show immediate feedback that we're trying this domain
             this.showDiscoveryProgress(domain, 'Connecting...');
             
-            // First try HTTPS
+            // First try HTTPS with timeout protection
             let url = `https://${domain}`;
-            let html = await this.fetchWithProxy(url);
+            let html = await this.fetchWithTimeoutProtection(url, 4000); // Reduced from 5000
             
             if (html && html.length > 100) {
                 this.showDiscoveryProgress(domain, 'Parsing content...');
-                const contents = this.parseContentRealTime(html, domain);
+                
+                // Parse content with timeout protection
+                const contents = await this.parseContentWithTimeout(html, domain, 2000); // Reduced from 3000
                 
                 // Only show one quote from this domain
                 if (contents.length > 0 && !this.processedDomains.has(domain)) {
@@ -779,15 +784,24 @@ class RandomRadar {
             console.warn(`HTTPS failed for ${domain}:`, error);
         }
         
+        // Check if we've exceeded time limit
+        if (Date.now() - startTime > maxCrawlTime) {
+            console.warn(`Timeout exceeded for ${domain}, skipping remaining attempts`);
+            this.removeDiscoveryProgress(domain);
+            return;
+        }
+        
         try {
             // If HTTPS fails, try HTTP
             this.showDiscoveryProgress(domain, 'Trying HTTP...');
             let url = `http://${domain}`;
-            let html = await this.fetchWithProxy(url);
+            let html = await this.fetchWithTimeoutProtection(url, 3000); // Reduced from 4000
             
             if (html && html.length > 100) {
                 this.showDiscoveryProgress(domain, 'Parsing content...');
-                const contents = this.parseContentRealTime(html, domain);
+                
+                // Parse content with timeout protection
+                const contents = await this.parseContentWithTimeout(html, domain, 1500); // Reduced from 2000
                 
                 // Only show one quote from this domain
                 if (contents.length > 0 && !this.processedDomains.has(domain)) {
@@ -806,15 +820,24 @@ class RandomRadar {
             console.warn(`Both HTTPS and HTTP failed for ${domain}:`, httpError);
         }
         
-        // If domain doesn't work, try with www prefix
+        // Check if we've exceeded time limit
+        if (Date.now() - startTime > maxCrawlTime) {
+            console.warn(`Timeout exceeded for ${domain}, skipping www attempt`);
+            this.removeDiscoveryProgress(domain);
+            return;
+        }
+        
+        // If domain doesn't work, try with www prefix (only if time allows)
         try {
             this.showDiscoveryProgress(domain, 'Trying www...');
             let url = `https://www.${domain}`;
-            let html = await this.fetchWithProxy(url);
+            let html = await this.fetchWithTimeoutProtection(url, 2000); // Reduced from 3000
             
             if (html && html.length > 100) {
                 this.showDiscoveryProgress(domain, 'Parsing content...');
-                const contents = this.parseContentRealTime(html, domain);
+                
+                // Parse content with timeout protection
+                const contents = await this.parseContentWithTimeout(html, domain, 1000); // Reduced from 2000
                 
                 // Only show one quote from this domain
                 if (contents.length > 0 && !this.processedDomains.has(domain)) {
@@ -835,6 +858,7 @@ class RandomRadar {
         
         // Remove progress indicator if all methods failed
         this.removeDiscoveryProgress(domain);
+        console.log(`All methods failed for ${domain}, total time: ${Date.now() - startTime}ms`);
     }
 
     showDiscoveryProgress(domain, status) {
@@ -871,50 +895,116 @@ class RandomRadar {
     }
 
     parseContentRealTime(html, domain) {
-        // Create a DOM parser
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        
-        // Extract title
-        const title = doc.querySelector('title')?.textContent?.trim() || 'Untitled';
-        
-        // Extract meta description
-        const metaDesc = doc.querySelector('meta[name="description"]')?.getAttribute('content') || '';
-        
-        // Extract quotes/snippets and prioritize them
-        const quotes = this.extractQuotes(doc);
-        
-        if (quotes.length === 0) {
-            return []; // No interesting content found
+        try {
+            // Add timeout protection for parsing
+            const parseTimeout = new Promise((resolve, reject) => {
+                setTimeout(() => reject(new Error('Parse timeout')), 6000); // 6 second timeout
+            });
+            
+            const parsePromise = new Promise((resolve, reject) => {
+                try {
+                    // Limit HTML size to prevent memory issues
+                    if (html.length > 500000) { // 500KB limit
+                        html = html.substring(0, 500000);
+                    }
+                    
+                    // Quick validation - check if it's actually HTML
+                    if (!html.includes('<') || !html.includes('>')) {
+                        throw new Error('Not HTML content');
+                    }
+                    
+                    // Create a DOM parser with error handling
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    
+                    // Check if parsing created any errors
+                    const parserError = doc.querySelector('parsererror');
+                    if (parserError) {
+                        throw new Error('HTML parsing error');
+                    }
+                    
+                    // Extract title with timeout protection
+                    const title = doc.querySelector('title')?.textContent?.trim()?.substring(0, 200) || 'Untitled';
+                    
+                    // Extract meta description with timeout protection
+                    const metaDesc = doc.querySelector('meta[name="description"]')?.getAttribute('content')?.substring(0, 300) || '';
+                    
+                    // Extract quotes/snippets with timeout protection
+                    const quotes = this.extractQuotesFast(doc);
+                    
+                    if (quotes.length === 0) {
+                        resolve([]); // No interesting content found
+                        return;
+                    }
+                    
+                    // Quick prioritization without complex sorting
+                    let bestQuote = quotes[0];
+                    
+                    // Simple priority: prefer quotes with quotation marks
+                    for (const quote of quotes.slice(0, 3)) { // Only check first 3 for speed
+                        if (quote.includes('"') || quote.includes('"') || quote.includes('"')) {
+                            bestQuote = quote;
+                            break;
+                        }
+                    }
+                    
+                    // Return only the best quote for this domain
+                    resolve([{
+                        domain,
+                        title,
+                        description: metaDesc,
+                        quote: bestQuote,
+                        timestamp: new Date(),
+                        url: `https://${domain}`
+                    }]);
+                    
+                } catch (error) {
+                    reject(error);
+                }
+            });
+            
+            // Race between parsing and timeout
+            return Promise.race([parsePromise, parseTimeout]);
+            
+        } catch (error) {
+            console.warn(`Parsing failed for ${domain}:`, error);
+            this.updateStatus(`Parsing failed for ${domain} - skipping...`);
+            return []; // Return empty array on any error
         }
-        
-        // Prioritize quotes: longer ones that look more like actual quotes
-        const prioritizedQuotes = quotes.sort((a, b) => {
-            // Prefer quotes with quotation marks
-            const aHasQuotes = a.includes('"') || a.includes('"') || a.includes('"');
-            const bHasQuotes = b.includes('"') || b.includes('"') || b.includes('"');
+    }
+
+    async parseContentWithTimeout(html, domain, timeout = 5000) {
+        try {
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Content parsing timeout')), timeout);
+            });
             
-            if (aHasQuotes && !bHasQuotes) return -1;
-            if (!aHasQuotes && bHasQuotes) return 1;
+            const parsePromise = Promise.resolve(this.parseContentRealTime(html, domain));
             
-            // Prefer longer quotes (but not too long)
-            const aScore = a.length > 50 && a.length < 200 ? a.length : a.length * 0.5;
-            const bScore = b.length > 50 && b.length < 200 ? b.length : b.length * 0.5;
+            return await Promise.race([parsePromise, timeoutPromise]);
+        } catch (error) {
+            console.warn(`Content parsing failed for ${domain}:`, error);
+            return [];
+        }
+    }
+
+    async fetchWithTimeoutProtection(url, timeout = 5000) {
+        try {
+            const controller = new AbortController();
+            const signal = controller.signal;
             
-            return bScore - aScore;
-        });
-        
-        // Return only the best quote for this domain
-        const bestQuote = prioritizedQuotes[0];
-        
-        return [{
-            domain,
-            title,
-            description: metaDesc,
-            quote: bestQuote,
-            timestamp: new Date(),
-            url: `https://${domain}`
-        }];
+            const timeoutId = setTimeout(() => {
+                controller.abort();
+            }, timeout);
+            
+            const response = await fetch(url, { signal });
+            clearTimeout(timeoutId);
+            
+            return await response.text();
+        } catch (error) {
+            console.warn(`Fetch with timeout protection failed for ${url}:`, error);
+            throw error;
+        }
     }
 
     addDiscoveryRealTime(content) {
@@ -1056,129 +1146,152 @@ class RandomRadar {
 
     extractQuotes(doc) {
         const quotes = [];
+        const maxQuotes = 10; // Limit to prevent slowdown
         
-        // Look for blockquotes first (highest priority)
-        const blockquotes = doc.querySelectorAll('blockquote');
-        blockquotes.forEach(bq => {
-            const text = bq.textContent.trim();
-            if (text.length > 20 && text.length < 500) {
-                quotes.push(text);
-            }
-        });
-        
-        // Look for quote elements
-        const quoteElements = doc.querySelectorAll('q, cite, .quote, .quotation');
-        quoteElements.forEach(q => {
-            const text = q.textContent.trim();
-            if (text.length > 15 && text.length < 400) {
-                quotes.push(text);
-            }
-        });
-        
-        // Look for headings that might be quotes or interesting statements
-        const headings = doc.querySelectorAll('h1, h2, h3, h4');
-        headings.forEach(h => {
-            const text = h.textContent.trim();
-            if (text.length > 20 && text.length < 200 && 
-                (text.includes('?') || text.includes('!') || text.includes(':') || text.includes('"'))) {
-                quotes.push(text);
-            }
-        });
-        
-        // Look for paragraphs with interesting content
-        const paragraphs = doc.querySelectorAll('p');
-        paragraphs.forEach(p => {
-            const text = p.textContent.trim();
-            if (text.length > 50 && text.length < 300) {
-                // Check if it looks like a quote or interesting statement
-                if (text.includes('"') || text.includes('"') || text.includes('"') || 
-                    text.includes('—') || text.includes('–') || text.includes('...') ||
-                    text.match(/^[A-Z][^.!?]*[.!?]$/) || 
-                    text.includes('said') || text.includes('stated') || 
-                    text.includes('according to') || text.includes('believe') ||
-                    text.match(/\b(think|feel|believe|consider|argue|suggest|claim|assert)\b/i)) {
-                    quotes.push(text);
+        try {
+            // Quick selectors for common quote patterns
+            const quoteSelectors = [
+                'blockquote',
+                'q',
+                '[class*="quote"]',
+                '[class*="testimonial"]',
+                'p:has(em)',
+                'p:has(strong)',
+                '.content p',
+                'article p',
+                'main p'
+            ];
+            
+            // Process each selector with timeout protection
+            for (const selector of quoteSelectors) {
+                if (quotes.length >= maxQuotes) break;
+                
+                try {
+                    const elements = doc.querySelectorAll(selector);
+                    
+                    // Only process first 20 elements of each type for speed
+                    for (let i = 0; i < Math.min(elements.length, 20); i++) {
+                        if (quotes.length >= maxQuotes) break;
+                        
+                        const element = elements[i];
+                        const text = element.textContent?.trim();
+                        
+                        // Quick validation
+                        if (!text || text.length < 30 || text.length > 500) continue;
+                        
+                        // Skip if it looks like navigation/meta content
+                        if (this.isNavigationContent(text)) continue;
+                        
+                        // Clean and add the quote
+                        const cleanText = this.cleanText(text);
+                        if (cleanText && cleanText.length >= 30) {
+                            quotes.push(cleanText);
+                        }
+                    }
+                } catch (selectorError) {
+                    // Skip this selector if it fails
+                    continue;
                 }
             }
-        });
-        
-        // Look for article content
-        const articles = doc.querySelectorAll('article p, .content p, .post p, .entry p, .article p');
-        articles.forEach(p => {
-            const text = p.textContent.trim();
-            if (text.length > 30 && text.length < 250) {
-                quotes.push(text);
+            
+            // If no quotes found, try paragraph content quickly
+            if (quotes.length === 0) {
+                try {
+                    const paragraphs = doc.querySelectorAll('p');
+                    for (let i = 0; i < Math.min(paragraphs.length, 10); i++) {
+                        const text = paragraphs[i].textContent?.trim();
+                        if (text && text.length >= 50 && text.length <= 300) {
+                            if (!this.isNavigationContent(text)) {
+                                quotes.push(this.cleanText(text));
+                                if (quotes.length >= 5) break; // Limit for speed
+                            }
+                        }
+                    }
+                } catch (paragraphError) {
+                    // Continue with any quotes we found
+                }
             }
-        });
+            
+        } catch (error) {
+            console.warn('Quote extraction error:', error);
+        }
         
-        // Look for list items that might contain quotes
-        const listItems = doc.querySelectorAll('li');
-        listItems.forEach(li => {
-            const text = li.textContent.trim();
-            if (text.length > 25 && text.length < 200 && 
-                (text.includes('"') || text.includes('—') || text.includes(':'))) {
-                quotes.push(text);
+        return quotes.filter(q => q && q.length >= 30);
+    }
+    
+    extractQuotesFast(doc) {
+        const quotes = [];
+        const maxQuotes = 5; // Even more limited for speed
+        
+        try {
+            // Ultra-fast selectors - only the most common ones
+            const quickSelectors = [
+                'blockquote',
+                'q',
+                'p'
+            ];
+            
+            for (const selector of quickSelectors) {
+                if (quotes.length >= maxQuotes) break;
+                
+                try {
+                    const elements = doc.querySelectorAll(selector);
+                    
+                    // Only check first 10 elements for maximum speed
+                    for (let i = 0; i < Math.min(elements.length, 10); i++) {
+                        if (quotes.length >= maxQuotes) break;
+                        
+                        const element = elements[i];
+                        const text = element.textContent?.trim();
+                        
+                        // Ultra-quick validation
+                        if (text && text.length >= 30 && text.length <= 400) {
+                            // Skip obvious navigation content
+                            const lowerText = text.toLowerCase();
+                            if (!lowerText.includes('cookie') && 
+                                !lowerText.includes('privacy') && 
+                                !lowerText.includes('menu') &&
+                                !lowerText.includes('navigation') &&
+                                !lowerText.includes('login') &&
+                                !lowerText.includes('search')) {
+                                quotes.push(text.substring(0, 350)); // Limit length
+                            }
+                        }
+                    }
+                } catch (selectorError) {
+                    continue; // Skip failed selectors
+                }
             }
-        });
+        } catch (error) {
+            console.warn('Fast quote extraction error:', error);
+        }
         
-        // Look for emphasized text
-        const emphasized = doc.querySelectorAll('em, strong, b, i');
-        emphasized.forEach(em => {
-            const text = em.textContent.trim();
-            if (text.length > 20 && text.length < 150) {
-                quotes.push(text);
-            }
-        });
+        return quotes;
+    }
+    
+    isNavigationContent(text) {
+        // Quick check for navigation/meta content
+        const lowerText = text.toLowerCase();
+        const skipPatterns = [
+            'cookie', 'privacy', 'terms', 'subscribe', 'newsletter',
+            'login', 'sign up', 'register', 'menu', 'navigation',
+            'footer', 'header', 'sidebar', 'search', 'contact',
+            'about us', 'home', 'click here', 'read more',
+            'loading', 'error', 'javascript', 'advertisement'
+        ];
         
-        // Look for div elements that might contain quotes
-        const divs = doc.querySelectorAll('div.quote, div.excerpt, div.highlight, div.summary');
-        divs.forEach(div => {
-            const text = div.textContent.trim();
-            if (text.length > 20 && text.length < 400) {
-                quotes.push(text);
-            }
-        });
+        return skipPatterns.some(pattern => lowerText.includes(pattern));
+    }
+    
+    cleanText(text) {
+        if (!text) return '';
         
-        // Remove duplicates and clean up
-        const uniqueQuotes = [...new Set(quotes)]
-            .filter(quote => {
-                // Filter out common non-quote content
-                const lowerQuote = quote.toLowerCase();
-                return !lowerQuote.includes('cookie') &&
-                       !lowerQuote.includes('privacy policy') &&
-                       !lowerQuote.includes('terms of service') &&
-                       !lowerQuote.includes('copyright') &&
-                       !lowerQuote.includes('all rights reserved') &&
-                       !lowerQuote.includes('404') &&
-                       !lowerQuote.includes('error') &&
-                       !lowerQuote.includes('loading') &&
-                       !lowerQuote.includes('please wait') &&
-                       !lowerQuote.includes('click here') &&
-                       !lowerQuote.includes('read more') &&
-                       !lowerQuote.includes('subscribe') &&
-                       !lowerQuote.includes('sign up') &&
-                       !lowerQuote.includes('log in') &&
-                       !lowerQuote.includes('home') &&
-                       !lowerQuote.includes('about') &&
-                       !lowerQuote.includes('contact') &&
-                       !lowerQuote.includes('menu') &&
-                       !lowerQuote.includes('navigation') &&
-                       !lowerQuote.includes('javascript') &&
-                       !lowerQuote.includes('css') &&
-                       !lowerQuote.includes('html') &&
-                       !lowerQuote.includes('function') &&
-                       !lowerQuote.includes('var ') &&
-                       !lowerQuote.includes('const ') &&
-                       !lowerQuote.includes('let ') &&
-                       !lowerQuote.includes('</') &&
-                       !lowerQuote.includes('{}') &&
-                       !lowerQuote.includes('[]') &&
-                       quote.length > 15 &&
-                       quote.length < 400;
-            })
-            .slice(0, 10); // Get top 10 candidates for sorting
-        
-        return uniqueQuotes;
+        // Quick clean without complex regex
+        return text
+            .replace(/\s+/g, ' ')
+            .replace(/[\r\n\t]/g, ' ')
+            .trim()
+            .substring(0, 400); // Limit length
     }
 
     addDiscovery(content) {
@@ -1238,7 +1351,21 @@ class RandomRadar {
     }
 
     updateStatus(message) {
-        document.getElementById('status').textContent = message;
+        const statusElement = document.getElementById('status');
+        statusElement.textContent = message;
+        
+        // Add timestamp for better feedback
+        const timestamp = new Date().toLocaleTimeString();
+        statusElement.title = `${message} (${timestamp})`;
+        
+        // Auto-clear long messages after 10 seconds
+        if (message.length > 50) {
+            setTimeout(() => {
+                if (statusElement.textContent === message) {
+                    statusElement.textContent = 'Ready to discover...';
+                }
+            }, 10000);
+        }
     }
 
     saveDiscoveries() {
