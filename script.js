@@ -79,46 +79,30 @@ class RandomRadar {
     }
 
     async discoverNewDomains() {
-        this.updateStatus('Discovering new domains using fast methods...');
-        this.currentSources = []; // Clear previous sources
-        
-        // Use faster, more reliable methods for finding new domains
+        this.updateStatus('Entdecke neue Domains aus echten Quellen...');
+        this.currentSources = [];
         const discoveryPromises = [
             this.getDomainsFromHackerNews(),
             this.getDomainsFromGitHubTrending(),
             this.getDomainsFromRedditNew(),
-            this.getDomainsFromProductHunt(),
-            this.scanSubdomainEnumerationSites(),
-            this.getCertificateTransparencyFast()
+            this.getCertificateTransparencyFast(),
+            this.getDomainsFromWhoisDS(),
+            this.getDomainsFromNewlyRegisteredDomainsCom(),
+            this.getDomainsFromZonefilesIO(),
+            this.getDomainsFromNamerific()
         ];
-        
-        // Wait for all methods to complete quickly
         try {
             await Promise.race([
                 Promise.allSettled(discoveryPromises),
-                new Promise(resolve => setTimeout(resolve, 10000)) // 10 second timeout
+                new Promise(resolve => setTimeout(resolve, 12000))
             ]);
         } catch (error) {
-            console.warn('Some discovery methods failed:', error);
+            console.warn('Einige Discovery-Quellen schlugen fehl:', error);
         }
-        
-        // Remove duplicates
-        this.currentSources = [...new Set(this.currentSources)];
-        
-        // If we don't have enough domains, use rapid generation
-        if (this.currentSources.length < 10) {
-            await this.rapidDomainGeneration();
-            this.currentSources = [...new Set(this.currentSources)];
-        }
-        
-        // Shuffle for variety
-        this.currentSources = this.currentSources.sort(() => 0.5 - Math.random());
-        
-        // Limit to prevent overwhelming
-        this.currentSources = this.currentSources.slice(0, 25);
-        
-        this.updateStatus(`Found ${this.currentSources.length} domains to explore quickly`);
-        console.log('Fast discovered domains:', this.currentSources);
+        this.currentSources = [...new Set(this.currentSources)].filter(domain => this.isValidDomain(domain));
+        this.currentSources = this.currentSources.sort(() => 0.5 - Math.random()).slice(0, 30);
+        this.updateStatus(`Gefunden: ${this.currentSources.length} neue Domains aus echten Quellen`);
+        console.log('Domains aus echten Quellen:', this.currentSources);
     }
 
     async getDomainsFromHackerNews() {
@@ -211,59 +195,6 @@ class RandomRadar {
         }
     }
 
-    async getDomainsFromProductHunt() {
-        try {
-            // Product Hunt features new products with websites daily
-            const response = await this.fetchWithProxy('https://api.producthunt.com/v2/api/graphql');
-            // Note: This would need proper API key, so we'll use a simpler approach
-            
-            // Instead, let's generate domains based on current ProductHunt patterns
-            const currentDate = new Date();
-            const year = currentDate.getFullYear();
-            const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-            
-            // ProductHunt-style domain patterns (common for new startups)
-            const phPatterns = [
-                'tryhello', 'useflow', 'getapp', 'jointeam', 'buildsmart',
-                'makesimple', 'startnew', 'launchfast', 'growquick', 'scaleup'
-            ];
-            
-            const domains = phPatterns.map(pattern => `${pattern}.com`);
-            domains.push(...phPatterns.map(pattern => `${pattern}.io`));
-            domains.push(...phPatterns.map(pattern => `${pattern}.ai`));
-            
-            this.currentSources.push(...domains.slice(0, 10));
-            console.log(`Generated ProductHunt-style domains`);
-        } catch (error) {
-            console.warn('ProductHunt domain discovery failed:', error);
-        }
-    }
-
-    async scanSubdomainEnumerationSites() {
-        try {
-            // Use subdomain enumeration patterns to find new domains
-            const popularServices = ['vercel.app', 'netlify.app', 'herokuapp.com', 'github.io'];
-            const recentPatterns = ['2025', 'new', 'beta', 'app', 'web', 'site'];
-            
-            const generatedDomains = [];
-            
-            for (const service of popularServices) {
-                for (const pattern of recentPatterns) {
-                    // Generate likely subdomain patterns
-                    const randomNum = Math.floor(Math.random() * 999) + 1;
-                    generatedDomains.push(`${pattern}${randomNum}.${service}`);
-                    generatedDomains.push(`${pattern}-app.${service}`);
-                    generatedDomains.push(`my-${pattern}.${service}`);
-                }
-            }
-            
-            this.currentSources.push(...generatedDomains.slice(0, 15));
-            console.log(`Generated subdomain-based potential domains`);
-        } catch (error) {
-            console.warn('Subdomain enumeration failed:', error);
-        }
-    }
-
     async getCertificateTransparencyFast() {
         try {
             // Fast CT lookup with shorter timeframe and simpler parsing
@@ -288,363 +219,68 @@ class RandomRadar {
         }
     }
 
-    async rapidDomainGeneration() {
-        // Super fast domain generation for when other methods are slow
-        const currentYear = new Date().getFullYear();
-        const currentMonth = new Date().getMonth() + 1;
-        const currentDay = new Date().getDate();
-        
-        const quickPrefixes = ['app', 'web', 'new', 'try', 'get', 'my', 'go'];
-        const quickSuffixes = ['ai', 'io', 'app', 'dev', 'tech', 'co'];
-        const quickTlds = ['.com', '.io', '.ai', '.app'];
-        
-        const rapidDomains = [];
-        
-        // Generate 20 domains very quickly
-        for (let i = 0; i < 20; i++) {
-            const prefix = quickPrefixes[Math.floor(Math.random() * quickPrefixes.length)];
-            const suffix = quickSuffixes[Math.floor(Math.random() * quickSuffixes.length)];
-            const tld = quickTlds[Math.floor(Math.random() * quickTlds.length)];
-            
-            let domain;
-            if (Math.random() > 0.5) {
-                domain = `${prefix}${suffix}${tld}`;
-            } else {
-                domain = `${prefix}${currentYear}${tld}`;
-            }
-            
-            if (this.isValidDomain(domain)) {
-                rapidDomains.push(domain);
-            }
-        }
-        
-        this.currentSources.push(...rapidDomains);
-        console.log(`Rapidly generated ${rapidDomains.length} potential domains`);
-    }
-
-    extractDomainFromUrl(url) {
+    async getDomainsFromWhoisDS() {
         try {
-            const urlObj = new URL(url);
-            return urlObj.hostname.replace(/^www\./, '');
-        } catch (error) {
-            return null;
-        }
-    }
-
-    isLikelyNewDomain(domain) {
-        // Check if domain looks like it could be new/recent
-        const currentYear = new Date().getFullYear();
-        const currentYearStr = currentYear.toString();
-        const lastYearStr = (currentYear - 1).toString();
-        
-        return domain.includes(currentYearStr) ||
-               domain.includes(lastYearStr) ||
-               domain.includes('new') ||
-               domain.includes('beta') ||
-               domain.includes('app') ||
-               domain.includes('try') ||
-               domain.includes('get') ||
-               domain.includes('my') ||
-               domain.endsWith('.ai') ||
-               domain.endsWith('.app') ||
-               domain.endsWith('.dev') ||
-               domain.endsWith('.tech') ||
-               domain.endsWith('.io');
-    }
-
-    // Deprecated slow methods - replaced with faster alternatives
-    async getGeneratedPotentialDomains() {
-        // This method is too slow - replaced with rapidDomainGeneration
-        console.log('Using rapid domain generation instead');
-        await this.rapidDomainGeneration();
-    }
-
-    async generateMorePotentialDomains() {
-        // This method is too slow - replaced with faster scanning
-        console.log('Using subdomain scanning instead');
-        await this.scanSubdomainEnumerationSites();
-    }
-
-    isValidNewDomain(domain) {
-        return domain && 
-               !domain.includes('*') && 
-               !domain.includes('localhost') &&
-               !domain.includes('test') &&
-               !domain.includes('staging') &&
-               !domain.includes('dev.') &&
-               !domain.includes('api.') &&
-               !domain.includes('cdn.') &&
-               !domain.includes('mail.') &&
-               !domain.includes('ns.') &&
-               !domain.includes('mx.') &&
-               !domain.includes('ftp.') &&
-               !domain.startsWith('www.') &&
-               domain.includes('.') &&
-               domain.length > 4 &&
-               domain.length < 50 &&
-               !domain.includes(' ') &&
-               (domain.endsWith('.com') || domain.endsWith('.org') || 
-                domain.endsWith('.net') || domain.endsWith('.io') || 
-                domain.endsWith('.ai') || domain.endsWith('.tech') ||
-                domain.endsWith('.dev') || domain.endsWith('.app'));
-    }
-
-    async getCertificateTransparencyDomains() {
-        try {
-            // Using crt.sh API to get recently issued certificates
-            // Query for certificates issued in the last 48 hours
-            const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
-            const dateString = twoDaysAgo.toISOString().split('T')[0];
-            
-            const response = await this.fetchWithProxy(`https://crt.sh/?q=%25&output=json&exclude=expired&after=${dateString}`);
-            const data = JSON.parse(response);
-            
-            if (data && Array.isArray(data)) {
-                // Get domains from the last 48 hours and filter for quality
-                const domains = data
-                    .filter(cert => {
-                        const issueDate = new Date(cert.not_before);
-                        const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
-                        return issueDate > twoDaysAgo;
-                    })
-                    .map(cert => cert.name_value.split('\n')[0])
-                    .filter(domain => {
-                        // Filter out wildcards, subdomains, and common services
-                        return domain && 
-                               !domain.includes('*') && 
-                               !domain.includes('localhost') &&
-                               !domain.includes('test') &&
-                               !domain.includes('staging') &&
-                               !domain.includes('dev.') &&
-                               !domain.includes('api.') &&
-                               !domain.includes('cdn.') &&
-                               !domain.includes('mail.') &&
-                               !domain.includes('www.') &&
-                               domain.includes('.') &&
-                               domain.length > 4 &&
-                               domain.length < 50;
-                    })
-                    .slice(0, 15); // Get top 15 candidates
-                
-                this.currentSources.push(...domains);
-                console.log(`Found ${domains.length} domains from Certificate Transparency`);
-            }
-            
-        } catch (error) {
-            console.warn('Certificate transparency lookup failed:', error);
-            // Try alternative CT log source
-            await this.getCertificateTransparencyAlternative();
-        }
-    }
-
-    async getCertificateTransparencyAlternative() {
-        try {
-            // Alternative: Use Google's Certificate Transparency API
-            const response = await this.fetchWithProxy('https://transparencyreport.google.com/https/certificates');
-            // This would need more complex parsing, so let's use a simpler approach
-            
-            // For now, let's use a more reliable method: recently registered domains from certificate logs
-            const domains = await this.getDomainsFromCertspotter();
-            this.currentSources.push(...domains);
-            
-        } catch (error) {
-            console.warn('Alternative CT lookup also failed:', error);
-        }
-    }
-
-    async getDomainsFromCertspotter() {
-        try {
-            // Use Certspotter API (free tier available)
-            const response = await this.fetchWithProxy('https://api.certspotter.com/v1/issuances?expand=dns_names&include_subdomains=false');
-            const data = JSON.parse(response);
-            
-            if (data && Array.isArray(data)) {
-                const domains = data
-                    .filter(cert => {
-                        const issueDate = new Date(cert.not_before);
-                        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-                        return issueDate > oneDayAgo;
-                    })
-                    .flatMap(cert => cert.dns_names || [])
-                    .filter(domain => {
-                        return domain && 
-                               !domain.includes('*') && 
-                               !domain.includes('localhost') &&
-                               !domain.includes('test') &&
-                               !domain.includes('staging') &&
-                               !domain.startsWith('www.') &&
-                               domain.includes('.') &&
-                               domain.length > 4 &&
-                               domain.length < 50;
-                    })
-                    .slice(0, 10);
-                
-                return domains;
-            }
-            
-        } catch (error) {
-            console.warn('Certspotter lookup failed:', error);
-            return [];
-        }
-    }
-
-    async getRecentlyRegisteredDomains() {
-        try {
-            // Method 1: Try WhoisDS API
-            await this.getWhoisDSDomains();
-            
-            // Method 2: Try DomainTools API alternative
-            await this.getDomainToolsDomains();
-            
-            // Method 3: Use DNS query for new registrations
-            await this.getDNSBasedDomains();
-            
-        } catch (error) {
-            console.warn('Recently registered domains lookup failed:', error);
-        }
-    }
-
-    async getWhoisDSDomains() {
-        try {
-            // WhoisDS provides newly registered domains
             const response = await this.fetchWithProxy('https://whoisds.com/newly-registered-domains');
-            
-            if (response) {
-                // Parse the HTML response to extract domains
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(response, 'text/html');
+            const domainRegex = /\b[a-zA-Z0-9-]+\.[a-zA-Z]{2,}\b/g;
+            const text = doc.body.textContent;
+            const matches = text.match(domainRegex) || [];
+            this.currentSources.push(...matches.slice(0, 10));
+        } catch (error) {
+            console.warn('WhoisDS fehlgeschlagen:', error);
+        }
+    }
+
+    async getDomainsFromNewlyRegisteredDomainsCom() {
+        try {
+            const tlds = ['com', 'net', 'org'];
+            for (const tld of tlds) {
+                const url = `https://newly-registered-domains.com/tlds/${tld}`;
+                const response = await this.fetchWithProxy(url);
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(response, 'text/html');
-                
-                // Look for domain patterns in the content
-                const domainRegex = /\b[a-zA-Z0-9-]+\.[a-zA-Z]{2,}\b/g;
-                const text = doc.body.textContent;
-                const matches = text.match(domainRegex) || [];
-                
-                const domains = matches
-                    .filter(domain => {
-                        return domain.length > 4 && 
-                               domain.length < 50 &&
-                               !domain.includes('whoisds') &&
-                               !domain.includes('example') &&
-                               !domain.includes('test') &&
-                               domain.includes('.com') || domain.includes('.net') || domain.includes('.org') || domain.includes('.io');
-                    })
-                    .slice(0, 10);
-                
-                this.currentSources.push(...domains);
-                console.log(`Found ${domains.length} domains from WhoisDS`);
-            }
-            
-        } catch (error) {
-            console.warn('WhoisDS lookup failed:', error);
-        }
-    }
-
-    async getDomainToolsDomains() {
-        try {
-            // Try to get domains from various new domain lists
-            const tlds = ['com', 'net', 'org', 'io', 'tech', 'dev', 'app'];
-            
-            for (const tld of tlds.slice(0, 3)) { // Limit to prevent too many requests
-                try {
-                    const response = await this.fetchWithProxy(`https://newly-registered-domains.com/${tld}`);
-                    
-                    if (response) {
-                        const parser = new DOMParser();
-                        const doc = parser.parseFromString(response, 'text/html');
-                        
-                        // Look for domain links or listings
-                        const domainElements = doc.querySelectorAll('a[href*="."], .domain, .domain-name');
-                        
-                        const domains = Array.from(domainElements)
-                            .map(el => el.textContent.trim())
-                            .filter(domain => {
-                                return domain && 
-                                       domain.includes('.') &&
-                                       domain.length > 4 &&
-                                       domain.length < 50 &&
-                                       !domain.includes(' ') &&
-                                       domain.endsWith(`.${tld}`);
-                            })
-                            .slice(0, 5);
-                        
-                        this.currentSources.push(...domains);
-                        console.log(`Found ${domains.length} domains from ${tld} registry`);
-                    }
-                } catch (tldError) {
-                    console.warn(`Failed to fetch ${tld} domains:`, tldError);
+                const links = doc.querySelectorAll('a');
+                for (const link of links) {
+                    const domain = link.textContent.trim();
+                    if (this.isValidDomain(domain)) this.currentSources.push(domain);
                 }
             }
-            
         } catch (error) {
-            console.warn('Domain tools lookup failed:', error);
+            console.warn('newly-registered-domains.com fehlgeschlagen:', error);
         }
     }
 
-    async getDNSBasedDomains() {
+    async getDomainsFromZonefilesIO() {
         try {
-            // Generate potential new domains based on current trends and patterns
-            const currentYear = new Date().getFullYear();
-            const currentMonth = new Date().getMonth() + 1;
-            
-            const trendingWords = [
-                'ai', 'ml', 'blockchain', 'crypto', 'nft', 'metaverse', 'web3',
-                'startup', 'tech', 'innovation', 'digital', 'cloud', 'saas',
-                'app', 'platform', 'solution', 'service', 'hub', 'lab',
-                `${currentYear}`, `${currentMonth}`, 'new', 'fresh', 'modern'
-            ];
-            
-            const suffixes = ['hub', 'lab', 'tech', 'app', 'dev', 'io', 'ai', 'co'];
-            const tlds = ['.com', '.net', '.org', '.io', '.tech', '.dev', '.app', '.co'];
-            
-            const potentialDomains = [];
-            
-            // Generate realistic domain combinations
-            for (let i = 0; i < 20; i++) {
-                const word1 = trendingWords[Math.floor(Math.random() * trendingWords.length)];
-                const word2 = suffixes[Math.floor(Math.random() * suffixes.length)];
-                const tld = tlds[Math.floor(Math.random() * tlds.length)];
-                
-                const domain = `${word1}${word2}${tld}`;
-                potentialDomains.push(domain);
+            const response = await this.fetchWithProxy('https://zonefiles.io/newly-registered-domains.json');
+            const data = JSON.parse(response);
+            if (Array.isArray(data)) {
+                this.currentSources.push(...data.slice(0, 20));
             }
-            
-            // Test which domains actually exist and are new
-            const existingDomains = [];
-            
-            for (const domain of potentialDomains.slice(0, 10)) {
-                try {
-                    // Try to fetch the domain to see if it exists
-                    const response = await this.fetchWithProxy(`https://${domain}`);
-                    if (response && response.length > 100) { // Has actual content
-                        existingDomains.push(domain);
-                    }
-                } catch (error) {
-                    // Domain might not exist or be accessible
-                    continue;
+        } catch (error) {
+            console.warn('zonefiles.io fehlgeschlagen:', error);
+        }
+    }
+
+    async getDomainsFromNamerific() {
+        try {
+            const response = await this.fetchWithProxy('https://www.namerific.com/newly-registered-domains');
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(response, 'text/html');
+            const rows = doc.querySelectorAll('table tr');
+            for (const row of rows) {
+                const cols = row.querySelectorAll('td');
+                if (cols.length > 0) {
+                    const domain = cols[0].textContent.trim();
+                    if (this.isValidDomain(domain)) this.currentSources.push(domain);
                 }
             }
-            
-            this.currentSources.push(...existingDomains);
-            console.log(`Found ${existingDomains.length} domains from DNS-based discovery`);
-            
         } catch (error) {
-            console.warn('DNS-based domain discovery failed:', error);
+            console.warn('Namerific fehlgeschlagen:', error);
         }
     }
-
-    generateRandomDomains() {
-        // This function is now deprecated - we focus on discovering actual new domains
-        // instead of using hardcoded lists. The new approach prioritizes:
-        // 1. Certificate Transparency logs
-        // 2. Recently registered domain feeds
-        // 3. Generated potential new domains based on current trends
-        
-        console.log('Focusing on new domain discovery instead of hardcoded lists');
-    }
-
-    // Legacy functions removed - focusing on new domain discovery
-    // getDiverseCategories() and generateCategoryDomains() are no longer needed
-    // as we prioritize discovering actual new domains over generating hardcoded lists
 
     async crawlCycle() {
         if (!this.isRunning) return;
@@ -682,71 +318,6 @@ class RandomRadar {
             const delay = 500; // Even shorter delay for faster discovery
             setTimeout(() => this.crawlCycle(), delay);
         }
-    }
-
-    async getGeneratedDomains() {
-        // Generate domains that are likely to exist and have content
-        const currentYear = new Date().getFullYear();
-        const currentMonth = new Date().getMonth() + 1;
-        
-        // Categories of domains that are more likely to exist
-        const domainCategories = {
-            tech: {
-                prefixes: ['tech', 'digital', 'cyber', 'smart', 'ai', 'dev', 'code', 'web'],
-                suffixes: ['hub', 'lab', 'studio', 'space', 'zone', 'pro', 'net', 'io']
-            },
-            business: {
-                prefixes: ['biz', 'pro', 'expert', 'elite', 'prime', 'global', 'local'],
-                suffixes: ['solutions', 'services', 'group', 'agency', 'firm', 'co']
-            },
-            creative: {
-                prefixes: ['art', 'design', 'creative', 'pixel', 'craft', 'studio'],
-                suffixes: ['works', 'gallery', 'house', 'space', 'lab', 'zone']
-            },
-            news: {
-                prefixes: ['news', 'daily', 'times', 'post', 'herald', 'voice'],
-                suffixes: ['today', 'now', 'report', 'wire', 'feed', 'live']
-            }
-        };
-        
-        const tlds = ['.com', '.org', '.net', '.io', '.tech', '.dev', '.co'];
-        const generatedDomains = [];
-        
-        // Generate domains from each category
-        Object.entries(domainCategories).forEach(([category, data]) => {
-            for (let i = 0; i < 3; i++) {
-                const prefix = data.prefixes[Math.floor(Math.random() * data.prefixes.length)];
-                const suffix = data.suffixes[Math.floor(Math.random() * data.suffixes.length)];
-                const tld = tlds[Math.floor(Math.random() * tlds.length)];
-                
-                let domain;
-                const rand = Math.random();
-                
-                if (rand > 0.7) {
-                    // Add year
-                    domain = `${prefix}${currentYear}${tld}`;
-                } else if (rand > 0.4) {
-                    // Combine prefix and suffix
-                    domain = `${prefix}${suffix}${tld}`;
-                } else {
-                    // Add small number
-                    const num = Math.floor(Math.random() * 99) + 1;
-                    domain = `${prefix}${num}${tld}`;
-                }
-                
-                if (this.isValidDomain(domain)) {
-                    generatedDomains.push(domain);
-                }
-            }
-        });
-        
-        this.currentSources.push(...generatedDomains);
-        console.log(`Generated ${generatedDomains.length} potential domains`);
-    }
-
-    getBackupDomains() {
-        // No hardcoded backup domains - we focus on discovering new ones
-        return [];
     }
 
     async crawlDomain(domain) {
