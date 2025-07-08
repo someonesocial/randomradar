@@ -752,112 +752,105 @@ class RandomRadar {
     async crawlDomain(domain) {
         const startTime = Date.now();
         const maxCrawlTime = 8000; // 8 seconds maximum per domain (reduced from 10)
-        
+        let progressRemoved = false;
+        const safeRemoveProgress = () => {
+            if (!progressRemoved) {
+                this.removeDiscoveryProgress(domain);
+                progressRemoved = true;
+            }
+        };
         try {
-            // Show immediate feedback that we're trying this domain
             this.showDiscoveryProgress(domain, 'Connecting...');
-            
-            // First try HTTPS with timeout protection
             let url = `https://${domain}`;
-            let html = await this.fetchWithTimeoutProtection(url, 4000); // Reduced from 5000
-            
+            let html = await this.fetchWithTimeoutProtection(url, 4000);
             if (html && html.length > 100) {
                 this.showDiscoveryProgress(domain, 'Parsing content...');
-                
-                // Parse content with timeout protection
-                const contents = await this.parseContentWithTimeout(html, domain, 2000); // Reduced from 3000
-                
-                // Only show one quote from this domain
-                if (contents.length > 0 && !this.processedDomains.has(domain)) {
-                    const content = contents[0]; // Take only the first quote
-                    if (content && !this.foundQuotes.has(content.quote)) {
-                        this.foundQuotes.add(content.quote);
-                        this.processedDomains.add(domain);
-                        this.addDiscoveryRealTime(content);
+                try {
+                    const contents = await this.parseContentWithTimeout(html, domain, 2000);
+                    if (contents.length > 0 && !this.processedDomains.has(domain)) {
+                        const content = contents[0];
+                        if (content && !this.foundQuotes.has(content.quote)) {
+                            this.foundQuotes.add(content.quote);
+                            this.processedDomains.add(domain);
+                            this.addDiscoveryRealTime(content);
+                        }
                     }
+                } catch (parseError) {
+                    console.warn(`Parsing failed for ${domain} (HTTPS):`, parseError);
+                } finally {
+                    safeRemoveProgress();
                 }
-                
                 console.log(`Successfully crawled ${domain} via HTTPS`);
                 return;
             }
         } catch (error) {
             console.warn(`HTTPS failed for ${domain}:`, error);
         }
-        
-        // Check if we've exceeded time limit
         if (Date.now() - startTime > maxCrawlTime) {
             console.warn(`Timeout exceeded for ${domain}, skipping remaining attempts`);
-            this.removeDiscoveryProgress(domain);
+            safeRemoveProgress();
             return;
         }
-        
         try {
-            // If HTTPS fails, try HTTP
             this.showDiscoveryProgress(domain, 'Trying HTTP...');
             let url = `http://${domain}`;
-            let html = await this.fetchWithTimeoutProtection(url, 3000); // Reduced from 4000
-            
+            let html = await this.fetchWithTimeoutProtection(url, 3000);
             if (html && html.length > 100) {
                 this.showDiscoveryProgress(domain, 'Parsing content...');
-                
-                // Parse content with timeout protection
-                const contents = await this.parseContentWithTimeout(html, domain, 1500); // Reduced from 2000
-                
-                // Only show one quote from this domain
-                if (contents.length > 0 && !this.processedDomains.has(domain)) {
-                    const content = contents[0]; // Take only the first quote
-                    if (content && !this.foundQuotes.has(content.quote)) {
-                        this.foundQuotes.add(content.quote);
-                        this.processedDomains.add(domain);
-                        this.addDiscoveryRealTime(content);
+                try {
+                    const contents = await this.parseContentWithTimeout(html, domain, 1500);
+                    if (contents.length > 0 && !this.processedDomains.has(domain)) {
+                        const content = contents[0];
+                        if (content && !this.foundQuotes.has(content.quote)) {
+                            this.foundQuotes.add(content.quote);
+                            this.processedDomains.add(domain);
+                            this.addDiscoveryRealTime(content);
+                        }
                     }
+                } catch (parseError) {
+                    console.warn(`Parsing failed for ${domain} (HTTP):`, parseError);
+                } finally {
+                    safeRemoveProgress();
                 }
-                
                 console.log(`Successfully crawled ${domain} via HTTP`);
                 return;
             }
         } catch (httpError) {
             console.warn(`Both HTTPS and HTTP failed for ${domain}:`, httpError);
         }
-        
-        // Check if we've exceeded time limit
         if (Date.now() - startTime > maxCrawlTime) {
             console.warn(`Timeout exceeded for ${domain}, skipping www attempt`);
-            this.removeDiscoveryProgress(domain);
+            safeRemoveProgress();
             return;
         }
-        
-        // If domain doesn't work, try with www prefix (only if time allows)
         try {
             this.showDiscoveryProgress(domain, 'Trying www...');
             let url = `https://www.${domain}`;
-            let html = await this.fetchWithTimeoutProtection(url, 2000); // Reduced from 3000
-            
+            let html = await this.fetchWithTimeoutProtection(url, 2000);
             if (html && html.length > 100) {
                 this.showDiscoveryProgress(domain, 'Parsing content...');
-                
-                // Parse content with timeout protection
-                const contents = await this.parseContentWithTimeout(html, domain, 1000); // Reduced from 2000
-                
-                // Only show one quote from this domain
-                if (contents.length > 0 && !this.processedDomains.has(domain)) {
-                    const content = contents[0]; // Take only the first quote
-                    if (content && !this.foundQuotes.has(content.quote)) {
-                        this.foundQuotes.add(content.quote);
-                        this.processedDomains.add(domain);
-                        this.addDiscoveryRealTime(content);
+                try {
+                    const contents = await this.parseContentWithTimeout(html, domain, 1000);
+                    if (contents.length > 0 && !this.processedDomains.has(domain)) {
+                        const content = contents[0];
+                        if (content && !this.foundQuotes.has(content.quote)) {
+                            this.foundQuotes.add(content.quote);
+                            this.processedDomains.add(domain);
+                            this.addDiscoveryRealTime(content);
+                        }
                     }
+                } catch (parseError) {
+                    console.warn(`Parsing failed for www.${domain}:`, parseError);
+                } finally {
+                    safeRemoveProgress();
                 }
-                
                 console.log(`Successfully crawled www.${domain} via HTTPS`);
                 return;
             }
         } catch (wwwError) {
             console.warn(`www.${domain} also failed:`, wwwError);
         }
-        
-        // Remove progress indicator if all methods failed
-        this.removeDiscoveryProgress(domain);
+        safeRemoveProgress();
         console.log(`All methods failed for ${domain}, total time: ${Date.now() - startTime}ms`);
     }
 
