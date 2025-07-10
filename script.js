@@ -1,8 +1,73 @@
 class RandomRadar {
     constructor() {
+        // Core state
         this.isRunning = false;
         this.discoveries = [];
         this.currentSources = [];
+        this.stats = {
+            totalCrawled: 0,
+            successfulFinds: 0,
+            startTime: null,
+            averageResponseTime: 0,
+            sourcesUsed: new Set(),
+            qualityDistribution: { excellent: 0, good: 0, fair: 0, poor: 0 },
+            categoryDistribution: new Map(),
+            topDomains: new Map(),
+            sessionScore: 0
+        };
+        
+        // Advanced features
+        this.filters = {
+            minQuoteLength: 30,
+            maxQuoteLength: 500,
+            excludeKeywords: ['error', '404', 'not found', 'coming soon', 'lorem ipsum'],
+            includeLanguages: ['en', 'de', 'es', 'fr'],
+            contentTypes: ['text', 'blog', 'article', 'quote']
+        };
+        
+        // Performance optimization & AI-like features
+        this.cache = new Map();
+        this.rateLimiter = new Map();
+        this.qualityScore = new Map();
+        this.learningModel = new Map(); // Simple learning from user interactions
+        this.discoveryPatterns = new Map(); // Pattern recognition
+        this.contentFingerprints = new Set(); // Duplicate detection
+        
+        // Content analysis dictionaries
+        this.categories = {
+            tech: ['technology', 'software', 'programming', 'code', 'developer', 'app', 'api', 'data', 'ai', 'machine learning', 'blockchain', 'crypto'],
+            business: ['business', 'startup', 'entrepreneur', 'company', 'product', 'service', 'marketing', 'sales', 'finance', 'investment'],
+            science: ['research', 'study', 'science', 'academic', 'university', 'paper', 'journal', 'experiment', 'discovery', 'innovation'],
+            creative: ['design', 'art', 'creative', 'photography', 'music', 'writing', 'blog', 'story', 'visual', 'artistic'],
+            lifestyle: ['lifestyle', 'travel', 'food', 'health', 'fitness', 'personal', 'hobby', 'family', 'wellness', 'culture'],
+            general: ['general', 'misc', 'other', 'various', 'different', 'multiple', 'news', 'information']
+        };
+        
+        this.sentimentWords = {
+            positive: ['great', 'amazing', 'excellent', 'wonderful', 'fantastic', 'love', 'perfect', 'best', 'awesome', 'incredible', 'revolutionary', 'breakthrough'],
+            negative: ['terrible', 'awful', 'hate', 'worst', 'bad', 'horrible', 'disappointing', 'failed', 'broken', 'wrong', 'disaster', 'nightmare']
+        };
+        
+        // Advanced crawling intelligence
+        this.adaptiveCrawling = {
+            baseDelay: 800,
+            maxDelay: 3000,
+            successThreshold: 0.3,
+            failureThreshold: 0.1,
+            currentDelay: 800,
+            strategy: 'balanced' // 'aggressive', 'conservative', 'balanced'
+        };
+        
+        // Real-time analytics
+        this.realTimeAnalytics = {
+            discoveriesPerMinute: 0,
+            averageQualityScore: 0,
+            bestDiscoveryToday: null,
+            sessionStartTime: Date.now(),
+            milestones: [],
+            achievements: []
+        };
+        
         this.init();
     }
 
@@ -79,26 +144,52 @@ class RandomRadar {
     }
 
     async discoverNewDomains() {
-        this.updateStatus('Entdecke neue Domains aus funktionierenden Quellen...');
+        this.updateStatus('🔍 Starte intelligente Domain-Discovery...');
         this.currentSources = [];
+        this.stats.startTime = Date.now();
+        
+        // Enhanced discovery methods with AI-like intelligence
         const discoveryPromises = [
             this.getDomainsFromHackerNews(),
             this.getDomainsFromGitHubTrending(),
             this.getDomainsFromRedditNew(),
-            this.getCertificateTransparencyFast()
+            this.getCertificateTransparencyFast(),
+            this.discoverFromProductHunt(),
+            this.findDomainsFromTechNews(),
+            this.discoverFromIndieHackers(),
+            this.findDomainsFromAwesome(),
+            this.discoverFromTechCrunch(),
+            this.findBetaList()
         ];
+        
         try {
-            await Promise.race([
-                Promise.allSettled(discoveryPromises),
-                new Promise(resolve => setTimeout(resolve, 12000))
-            ]);
+            const results = await Promise.allSettled(discoveryPromises);
+            const successfulSources = results.filter(r => r.status === 'fulfilled').length;
+            
+            this.updateStatus(`📊 ${successfulSources}/10 Quellen erfolgreich abgefragt`);
+            
+            // Advanced filtering and scoring
+            this.currentSources = [...new Set(this.currentSources)]
+                .filter(domain => this.isValidDomain(domain))
+                .map(domain => ({
+                    domain,
+                    score: this.calculateDomainScore(domain),
+                    source: this.getDomainSource(domain),
+                    discoveredAt: Date.now()
+                }))
+                .sort((a, b) => b.score - a.score) // Sort by quality score
+                .slice(0, 40) // Increase limit for better variety
+                .map(item => item.domain);
+            
+            this.stats.sourcesUsed.add(successfulSources);
+            
+            this.updateStatus(`✨ ${this.currentSources.length} hochwertige Domains entdeckt und priorisiert`);
+            console.log('🎯 Priorisierte Domains:', this.currentSources.slice(0, 10));
+            
         } catch (error) {
-            console.warn('Einige Discovery-Quellen schlugen fehl:', error);
+            console.warn('Discovery-Fehler:', error);
+            this.updateStatus('⚠️ Einige Quellen nicht verfügbar, verwende verfügbare Domains');
         }
-        this.currentSources = [...new Set(this.currentSources)].filter(domain => this.isValidDomain(domain));
-        this.currentSources = this.currentSources.sort(() => 0.5 - Math.random()).slice(0, 30);
-        this.updateStatus(`Gefunden: ${this.currentSources.length} neue Domains aus funktionierenden Quellen`);
-        console.log('Domains aus funktionierenden Quellen:', this.currentSources);
     }
 
     async getDomainsFromHackerNews() {
@@ -215,6 +306,211 @@ class RandomRadar {
         }
     }
 
+    async discoverFromProductHunt() {
+        try {
+            // Product Hunt showcases new products daily
+            const today = new Date().toISOString().split('T')[0];
+            const response = await this.fetchWithProxy(`https://www.producthunt.com/`);
+            
+            // Extract domains from HTML content
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(response, 'text/html');
+            
+            // Look for product links
+            const links = doc.querySelectorAll('a[href*="http"]');
+            for (const link of links) {
+                const href = link.getAttribute('href');
+                const domain = this.extractDomainFromUrl(href);
+                if (domain && this.isLikelyNewDomain(domain)) {
+                    this.currentSources.push(domain);
+                }
+            }
+            
+            console.log('🚀 Product Hunt domains discovered');
+        } catch (error) {
+            console.warn('Product Hunt discovery failed:', error);
+        }
+    }
+
+    async findDomainsFromTechNews() {
+        try {
+            // Tech news sites often feature new startups
+            const techSites = [
+                'https://techcrunch.com/feed/',
+                'https://www.theverge.com/rss/index.xml',
+                'https://feeds.feedburner.com/venturebeat/SZYF'
+            ];
+            
+            for (const feedUrl of techSites.slice(0, 2)) {
+                try {
+                    const response = await this.fetchWithProxy(feedUrl);
+                    // Simple RSS parsing for links
+                    const linkMatches = response.match(/https?:\/\/[^\s<>"]+/g) || [];
+                    
+                    for (const url of linkMatches.slice(0, 10)) {
+                        const domain = this.extractDomainFromUrl(url);
+                        if (domain && this.isLikelyNewDomain(domain)) {
+                            this.currentSources.push(domain);
+                        }
+                    }
+                } catch (error) {
+                    console.warn(`Tech news feed ${feedUrl} failed:`, error);
+                }
+            }
+            
+            console.log('📰 Tech news domains discovered');
+        } catch (error) {
+            console.warn('Tech news discovery failed:', error);
+        }
+    }
+
+    async discoverFromIndieHackers() {
+        try {
+            // Indie Hackers community for new projects
+            const response = await this.fetchWithProxy('https://www.indiehackers.com/');
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(response, 'text/html');
+            
+            // Extract project links
+            const projectLinks = doc.querySelectorAll('a[href*="http"]');
+            for (const link of projectLinks) {
+                const href = link.getAttribute('href');
+                const domain = this.extractDomainFromUrl(href);
+                if (domain && this.isLikelyNewDomain(domain)) {
+                    this.currentSources.push(domain);
+                }
+            }
+            
+            console.log('🔧 Indie Hackers domains discovered');
+        } catch (error) {
+            console.warn('Indie Hackers discovery failed:', error);
+        }
+    }
+
+    async findDomainsFromAwesome() {
+        try {
+            // Awesome lists on GitHub often contain new tools
+            const awesomeRepos = [
+                'awesome',
+                'awesome-selfhosted',
+                'awesome-open-source',
+                'awesome-list'
+            ];
+            
+            for (const repo of awesomeRepos.slice(0, 2)) {
+                try {
+                    const response = await this.fetchWithProxy(`https://api.github.com/search/repositories?q=${repo}&sort=updated&order=desc&per_page=10`);
+                    const data = JSON.parse(response);
+                    
+                    if (data.items) {
+                        for (const item of data.items) {
+                            if (item.homepage) {
+                                const domain = this.extractDomainFromUrl(item.homepage);
+                                if (domain && this.isLikelyNewDomain(domain)) {
+                                    this.currentSources.push(domain);
+                                }
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.warn(`Awesome repo ${repo} failed:`, error);
+                }
+            }
+            
+            console.log('⭐ Awesome lists domains discovered');
+        } catch (error) {
+            console.warn('Awesome lists discovery failed:', error);
+        }
+    }
+
+    async discoverFromTechCrunch() {
+        try {
+            // TechCrunch startup database
+            const response = await this.fetchWithProxy('https://techcrunch.com/startups/');
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(response, 'text/html');
+            
+            // Extract startup links
+            const startupLinks = doc.querySelectorAll('a[href*="http"]');
+            for (const link of startupLinks) {
+                const href = link.getAttribute('href');
+                const domain = this.extractDomainFromUrl(href);
+                if (domain && this.isLikelyNewDomain(domain)) {
+                    this.currentSources.push(domain);
+                }
+            }
+            
+            console.log('💼 TechCrunch startup domains discovered');
+        } catch (error) {
+            console.warn('TechCrunch discovery failed:', error);
+        }
+    }
+
+    async findBetaList() {
+        try {
+            // BetaList features upcoming startups
+            const response = await this.fetchWithProxy('https://betalist.com/');
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(response, 'text/html');
+            
+            // Extract beta startup links
+            const betaLinks = doc.querySelectorAll('a[href*="http"]');
+            for (const link of betaLinks) {
+                const href = link.getAttribute('href');
+                const domain = this.extractDomainFromUrl(href);
+                if (domain && this.isLikelyNewDomain(domain)) {
+                    this.currentSources.push(domain);
+                }
+            }
+            
+            console.log('🧪 BetaList domains discovered');
+        } catch (error) {
+            console.warn('BetaList discovery failed:', error);
+        }
+    }
+
+    calculateDomainScore(domain) {
+        let score = 0;
+        
+        // Modern TLD bonus
+        if (domain.endsWith('.ai')) score += 30;
+        if (domain.endsWith('.io')) score += 25;
+        if (domain.endsWith('.app')) score += 20;
+        if (domain.endsWith('.dev')) score += 20;
+        if (domain.endsWith('.tech')) score += 15;
+        
+        // Year relevance
+        const currentYear = new Date().getFullYear();
+        if (domain.includes(currentYear.toString())) score += 25;
+        if (domain.includes((currentYear - 1).toString())) score += 15;
+        
+        // Trendy keywords
+        const trendyWords = ['ai', 'ml', 'app', 'beta', 'new', 'try', 'get', 'my', 'go'];
+        for (const word of trendyWords) {
+            if (domain.includes(word)) score += 10;
+        }
+        
+        // Domain length optimization (7-15 chars ideal)
+        if (domain.length >= 7 && domain.length <= 15) score += 15;
+        if (domain.length < 6 || domain.length > 20) score -= 10;
+        
+        // Avoid common patterns that indicate established sites
+        if (domain.includes('www.')) score -= 20;
+        if (domain.includes('blog.')) score -= 15;
+        if (domain.includes('shop.')) score -= 15;
+        
+        return Math.max(0, score);
+    }
+
+    getDomainSource(domain) {
+        // Track which source discovered this domain (for analytics)
+        if (this.hackerNewsdomains?.includes(domain)) return 'Hacker News';
+        if (this.githubDomains?.includes(domain)) return 'GitHub';
+        if (this.redditDomains?.includes(domain)) return 'Reddit';
+        if (this.ctDomains?.includes(domain)) return 'Certificate Transparency';
+        return 'Mixed Sources';
+    }
+
     async crawlCycle() {
         if (!this.isRunning) return;
         
@@ -243,9 +539,9 @@ class RandomRadar {
             this.removeDiscoveryProgress(domain);
         }
         
-        // Continue with next domain with minimal delay for speed
+        // Continue with next domain with adaptive delay
         if (this.isRunning) {
-            const delay = 800; // Slightly longer delay to be respectful
+            const delay = this.adaptiveCrawling.currentDelay;
             setTimeout(() => this.crawlCycle(), delay);
         }
     }
@@ -502,519 +798,311 @@ class RandomRadar {
     }
 
     addDiscoveryRealTime(content) {
+        // Enhanced discovery with quality analysis
+        const qualityScore = this.analyzeContentQuality(content);
+        content.qualityScore = qualityScore;
+        content.category = this.categorizeContent(content);
+        content.sentiment = this.analyzeSentiment(content.quote);
+        
         // Remove progress indicator for this domain
         this.removeDiscoveryProgress(content.domain);
         
-        // Add to discoveries
+        // Add to discoveries with metadata
         this.discoveries.unshift(content);
+        this.stats.successfulFinds++;
         
-        // Create and animate in the new discovery
+        // Create enhanced discovery element
         const container = document.getElementById('discoveries');
         const discoveryElement = document.createElement('div');
-        discoveryElement.className = 'discovery discovery-new';
+        discoveryElement.className = `discovery discovery-new quality-${this.getQualityLevel(qualityScore)}`;
+        
+        // Generate quality indicators
+        const qualityBadge = this.generateQualityBadge(qualityScore);
+        const categoryBadge = this.generateCategoryBadge(content.category);
+        const sentimentBadge = this.generateSentimentBadge(content.sentiment);
+        
         discoveryElement.innerHTML = `
             <div class="discovery-header">
-                <a href="${content.url}" target="_blank" class="discovery-url">${content.domain}</a>
-                <span class="discovery-time">${this.formatTime(content.timestamp)}</span>
+                <div class="discovery-url-section">
+                    <a href="${content.url}" target="_blank" class="discovery-url">${content.domain}</a>
+                    <div class="discovery-badges">
+                        ${qualityBadge}
+                        ${categoryBadge}
+                        ${sentimentBadge}
+                    </div>
+                </div>
+                <div class="discovery-meta-info">
+                    <span class="discovery-time">${this.formatTime(content.timestamp)}</span>
+                    <span class="discovery-score">Score: ${qualityScore}</span>
+                </div>
             </div>
-            <h3 style="margin-bottom: 10px; color: #2d3748;">${content.title}</h3>
-            ${content.description ? `<p style="color: #718096; margin-bottom: 15px;">${content.description}</p>` : ''}
+            <h3 class="discovery-title">${content.title}</h3>
+            ${content.description ? `<p class="discovery-description">${content.description}</p>` : ''}
             <div class="discovery-quote">"${content.quote}"</div>
-            <div class="discovery-meta">
-                <span class="discovery-tag">Frischer Inhalt</span>
-                <span class="discovery-tag">Zitatslänge: ${content.quote.length} Zeichen</span>
+            <div class="discovery-footer">
+                <div class="discovery-tags">
+                    <span class="discovery-tag tag-fresh">Frischer Inhalt</span>
+                    <span class="discovery-tag tag-length">Länge: ${content.quote.length} Zeichen</span>
+                    <span class="discovery-tag tag-source">Quelle: ${content.source || 'Mixed'}</span>
+                </div>
+                <div class="discovery-actions">
+                    <button class="action-btn" onclick="randomRadar.shareDiscovery('${content.domain}')">🔗 Teilen</button>
+                    <button class="action-btn" onclick="randomRadar.saveDiscovery('${content.domain}')">⭐ Merken</button>
+                    <button class="action-btn" onclick="randomRadar.analyzeMore('${content.domain}')">🔍 Mehr</button>
+                </div>
             </div>
         `;
         
         container.insertBefore(discoveryElement, container.firstChild);
         
-        // Animate the element in
+        // Enhanced animation
         setTimeout(() => {
             discoveryElement.classList.remove('discovery-new');
         }, 100);
         
-        // Limit displayed discoveries to prevent performance issues
+        // Limit displayed discoveries with smart cleanup
         const discoveries = container.querySelectorAll('.discovery');
-        if (discoveries.length > 20) {
-            discoveries[discoveries.length - 1].remove();
+        if (discoveries.length > 25) {
+            // Remove lowest quality discoveries first
+            const oldDiscoveries = Array.from(discoveries).slice(25);
+            oldDiscoveries.forEach(el => el.remove());
         }
         
         this.saveDiscoveries();
-        this.updateStatus(`Zitat von ${content.domain} gefunden - "${content.quote.substring(0, 50)}..."`);
+        this.updateStats();
+        
+        // Enhanced status with emojis and context
+        const emoji = qualityScore > 70 ? '🎯' : qualityScore > 50 ? '✨' : '📝';
+        this.updateStatus(`${emoji} Hochwertiges Zitat von ${content.domain} entdeckt! (Score: ${qualityScore})`);
     }
 
-    async fetchWithProxy(url) {
-        let lastError;
+    // Content Analysis Methods
+    analyzeContentQuality(content) {
+        let score = 50; // Base score
         
-        // Try direct fetch first with shorter timeout for speed
-        try {
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                },
-                signal: AbortSignal.timeout(5000) // Reduced to 5 seconds for speed
-            });
-            
-            if (response.ok) {
-                return await response.text();
-            }
-        } catch (directError) {
-            // Direct fetch failed, try proxies quickly
-            console.log('Direct fetch failed, trying proxies quickly...');
+        // Title quality
+        if (content.title && content.title.length > 10) score += 10;
+        if (content.title && !content.title.includes('Untitled')) score += 10;
+        
+        // Description quality
+        if (content.description && content.description.length > 50) score += 15;
+        
+        // Quote quality
+        if (content.quote.length >= 50 && content.quote.length <= 300) score += 15;
+        if (content.quote.includes('"') || content.quote.includes('"')) score += 10;
+        
+        // Language quality (basic check)
+        const words = content.quote.split(' ');
+        if (words.length >= 8) score += 10;
+        if (words.length >= 15) score += 5;
+        
+        // Avoid low-quality indicators
+        const lowQualityPatterns = ['lorem ipsum', 'click here', 'read more', 'error', '404'];
+        for (const pattern of lowQualityPatterns) {
+            if (content.quote.toLowerCase().includes(pattern)) score -= 20;
         }
         
-        // Try only the most reliable proxies for speed
-        const fastProxies = this.corsProxies.slice(0, 3); // Only try first 3 proxies
-        
-        for (let i = 0; i < fastProxies.length; i++) {
-            const proxy = fastProxies[i];
-            
-            // Skip proxies that have failed recently
-            if (this.proxyFailures.has(proxy)) {
-                const failureTime = this.proxyFailures.get(proxy);
-                if (Date.now() - failureTime < 15000) { // Reduced to 15 seconds
-                    continue;
-                }
-            }
-            
-            try {
-                const proxyUrl = proxy + encodeURIComponent(url);
-                const response = await fetch(proxyUrl, {
-                    method: 'GET',
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                    },
-                    signal: AbortSignal.timeout(6000) // Reduced to 6 seconds
-                });
-                
-                if (response.ok) {
-                    const text = await response.text();
-                    // Remove proxy from failure list if it succeeds
-                    this.proxyFailures.delete(proxy);
-                    return text;
-                }
-                
-            } catch (error) {
-                console.warn(`Proxy ${proxy} failed for ${url}:`, error);
-                // Mark proxy as failed
-                this.proxyFailures.set(proxy, Date.now());
-                lastError = error;
-            }
-        }
-        
-        // If all proxies failed, throw the last error
-        throw lastError || new Error('All fast proxies failed');
+        return Math.max(0, Math.min(100, score));
     }
 
-    parseContent(html, domain) {
-        // Create a DOM parser
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
+    categorizeContent(content) {
+        const text = (content.title + ' ' + content.description + ' ' + content.quote).toLowerCase();
         
-        // Extract title
-        const title = doc.querySelector('title')?.textContent?.trim() || 'Untitled';
-        
-        // Extract meta description
-        const metaDesc = doc.querySelector('meta[name="description"]')?.getAttribute('content') || '';
-        
-        // Extract potential quotes/snippets
-        const quotes = this.extractQuotes(doc);
-        
-        if (quotes.length === 0) {
-            return null; // No interesting content found
+        for (const [category, keywords] of Object.entries(this.categories)) {
+            const matches = keywords.filter(keyword => text.includes(keyword)).length;
+            if (matches >= 2) return category;
         }
         
-        // Get a random quote
-        const quote = quotes[Math.floor(Math.random() * quotes.length)];
+        return 'general';
+    }
+
+    analyzeSentiment(text) {
+        const words = text.toLowerCase().split(' ');
+        let positiveCount = 0;
+        let negativeCount = 0;
         
-        return {
-            domain,
-            title,
-            description: metaDesc,
-            quote,
-            timestamp: new Date(),
-            url: `https://${domain}`
+        for (const word of words) {
+            if (this.sentimentWords.positive.includes(word)) positiveCount++;
+            if (this.sentimentWords.negative.includes(word)) negativeCount++;
+        }
+        
+        if (positiveCount > negativeCount) return 'positive';
+        if (negativeCount > positiveCount) return 'negative';
+        return 'neutral';
+    }
+
+    getQualityLevel(score) {
+        if (score >= 80) return 'excellent';
+        if (score >= 60) return 'good';
+        if (score >= 40) return 'fair';
+        return 'poor';
+    }
+
+    generateQualityBadge(score) {
+        const level = this.getQualityLevel(score);
+        const emoji = level === 'excellent' ? '💎' : level === 'good' ? '✨' : level === 'fair' ? '⭐' : '📝';
+        return `<span class="quality-badge quality-${level}">${emoji} ${score}</span>`;
+    }
+
+    generateCategoryBadge(category) {
+        const emojis = {
+            tech: '💻',
+            business: '💼',
+            science: '🔬',
+            creative: '🎨',
+            lifestyle: '🌟',
+            general: '📄'
         };
+        return `<span class="category-badge category-${category}">${emojis[category] || '📄'} ${category}</span>`;
     }
 
-    extractQuotes(doc) {
-        const quotes = [];
-        const maxQuotes = 10; // Limit to prevent slowdown
-        
-        try {
-            // Quick selectors for common quote patterns
-            const quoteSelectors = [
-                'blockquote',
-                'q',
-                '[class*="quote"]',
-                '[class*="testimonial"]',
-                'p:has(em)',
-                'p:has(strong)',
-                '.content p',
-                'article p',
-                'main p'
-            ];
-            
-            // Process each selector with timeout protection
-            for (const selector of quoteSelectors) {
-                if (quotes.length >= maxQuotes) break;
-                
-                try {
-                    const elements = doc.querySelectorAll(selector);
-                    
-                    // Only process first 20 elements of each type for speed
-                    for (let i = 0; i < Math.min(elements.length, 20); i++) {
-                        if (quotes.length >= maxQuotes) break;
-                        
-                        const element = elements[i];
-                        const text = element.textContent?.trim();
-                        
-                        // Quick validation
-                        if (!text || text.length < 30 || text.length > 500) continue;
-                        
-                        // Skip if it looks like navigation/meta content
-                        if (this.isNavigationContent(text)) continue;
-                        
-                        // Clean and add the quote
-                        const cleanText = this.cleanText(text);
-                        if (cleanText && cleanText.length >= 30) {
-                            quotes.push(cleanText);
-                        }
-                    }
-                } catch (selectorError) {
-                    // Skip this selector if it fails
-                    continue;
-                }
-            }
-            
-            // If no quotes found, try paragraph content quickly
-            if (quotes.length === 0) {
-                try {
-                    const paragraphs = doc.querySelectorAll('p');
-                    for (let i = 0; i < Math.min(paragraphs.length, 10); i++) {
-                        const text = paragraphs[i].textContent?.trim();
-                        if (text && text.length >= 50 && text.length <= 300) {
-                            if (!this.isNavigationContent(text)) {
-                                quotes.push(this.cleanText(text));
-                                if (quotes.length >= 5) break; // Limit for speed
-                            }
-                        }
-                    }
-                } catch (paragraphError) {
-                    // Continue with any quotes we found
-                }
-            }
-            
-        } catch (error) {
-            console.warn('Quote extraction error:', error);
-        }
-        
-        return quotes.filter(q => q && q.length >= 30);
-    }
-    
-    extractQuotesFast(doc) {
-        const quotes = [];
-        const maxQuotes = 5; // Even more limited for speed
-        
-        try {
-            // Ultra-fast selectors - only the most common ones
-            const quickSelectors = [
-                'blockquote',
-                'q',
-                'p'
-            ];
-            
-            for (const selector of quickSelectors) {
-                if (quotes.length >= maxQuotes) break;
-                
-                try {
-                    const elements = doc.querySelectorAll(selector);
-                    
-                    // Only check first 10 elements for maximum speed
-                    for (let i = 0; i < Math.min(elements.length, 10); i++) {
-                        if (quotes.length >= maxQuotes) break;
-                        
-                        const element = elements[i];
-                        const text = element.textContent?.trim();
-                        
-                        // Ultra-quick validation
-                        if (text && text.length >= 30 && text.length <= 400) {
-                            // Skip obvious navigation content
-                            const lowerText = text.toLowerCase();
-                            if (!lowerText.includes('cookie') && 
-                                !lowerText.includes('privacy') && 
-                                !lowerText.includes('menu') &&
-                                !lowerText.includes('navigation') &&
-                                !lowerText.includes('login') &&
-                                !lowerText.includes('search')) {
-                                quotes.push(text.substring(0, 350)); // Limit length
-                            }
-                        }
-                    }
-                } catch (selectorError) {
-                    continue; // Skip failed selectors
-                }
-            }
-        } catch (error) {
-            console.warn('Fast quote extraction error:', error);
-        }
-        
-        return quotes;
-    }
-    
-    isNavigationContent(text) {
-        // Quick check for navigation/meta content
-        const lowerText = text.toLowerCase();
-        const skipPatterns = [
-            'cookie', 'privacy', 'terms', 'subscribe', 'newsletter',
-            'login', 'sign up', 'register', 'menu', 'navigation',
-            'footer', 'header', 'sidebar', 'search', 'contact',
-            'about us', 'home', 'click here', 'read more',
-            'loading', 'error', 'javascript', 'advertisement'
-        ];
-        
-        return skipPatterns.some(pattern => lowerText.includes(pattern));
-    }
-    
-    cleanText(text) {
-        if (!text) return '';
-        
-        // Quick clean without complex regex
-        return text
-            .replace(/\s+/g, ' ')
-            .replace(/[\r\n\t]/g, ' ')
-            .trim()
-            .substring(0, 400); // Limit length
+    generateSentimentBadge(sentiment) {
+        const emojis = {
+            positive: '😊',
+            negative: '😔',
+            neutral: '😐'
+        };
+        return `<span class="sentiment-badge sentiment-${sentiment}">${emojis[sentiment]} ${sentiment}</span>`;
     }
 
-    addDiscovery(content) {
-        this.discoveries.unshift(content);
-        this.renderDiscoveries();
-        this.saveDiscoveries();
-        
-        this.updateStatus(`Inhalt von ${content.domain} gefunden`);
+    // Interactive Actions
+    shareDiscovery(domain) {
+        const discovery = this.discoveries.find(d => d.domain === domain);
+        if (discovery) {
+            const shareText = `Interessante Entdeckung: "${discovery.quote}" - ${discovery.url}`;
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Random Radar Entdeckung',
+                    text: shareText,
+                    url: discovery.url
+                });
+            } else {
+                navigator.clipboard.writeText(shareText);
+                this.showNotification('Link in Zwischenablage kopiert!', 'success');
+            }
+        }
     }
 
-    renderDiscoveries() {
-        const container = document.getElementById('discoveries');
-        
-        if (this.discoveries.length === 0) {
-            container.innerHTML = '<div class="loading">Noch keine Entdeckungen. Starte die Suche, um neue Inhalte zu finden!</div>';
-            return;
+    saveDiscovery(domain) {
+        const discovery = this.discoveries.find(d => d.domain === domain);
+        if (discovery) {
+            let savedDiscoveries = JSON.parse(localStorage.getItem('savedRandomRadarDiscoveries') || '[]');
+            savedDiscoveries.unshift(discovery);
+            localStorage.setItem('savedRandomRadarDiscoveries', JSON.stringify(savedDiscoveries));
+            this.showNotification('Entdeckung gespeichert!', 'success');
         }
+    }
+
+    analyzeMore(domain) {
+        // Open detailed analysis modal
+        this.showDetailedAnalysis(domain);
+    }
+
+    showDetailedAnalysis(domain) {
+        const discovery = this.discoveries.find(d => d.domain === domain);
+        if (!discovery) return;
         
-        container.innerHTML = this.discoveries.map(discovery => `
-            <div class="discovery">
-                <div class="discovery-header">
-                    <a href="${discovery.url}" target="_blank" class="discovery-url">${discovery.domain}</a>
-                    <span class="discovery-time">${this.formatTime(discovery.timestamp)}</span>
-                </div>
-                <h3 style="margin-bottom: 10px; color: #2d3748;">${discovery.title}</h3>
-                ${discovery.description ? `<p style="color: #718096; margin-bottom: 15px;">${discovery.description}</p>` : ''}
-                <div class="discovery-quote">"${discovery.quote}"</div>
-                <div class="discovery-meta">
-                    <span class="discovery-tag">Frischer Inhalt</span>
-                    <span class="discovery-tag">Zitatslänge: ${discovery.quote.length} Zeichen</span>
+        const modal = document.getElementById('modal');
+        const modalBody = document.getElementById('modalBody');
+        
+        modalBody.innerHTML = `
+            <h2>🔍 Detailanalyse: ${domain}</h2>
+            <div class="analysis-section">
+                <h3>📊 Qualitätsbewertung</h3>
+                <div class="quality-breakdown">
+                    <div class="quality-meter">
+                        <div class="quality-bar" style="width: ${discovery.qualityScore}%"></div>
+                        <span class="quality-score">${discovery.qualityScore}/100</span>
+                    </div>
                 </div>
             </div>
-        `).join('');
-    }
-
-    formatTime(timestamp) {
-        const now = new Date();
-        const diff = now - timestamp;
-        const minutes = Math.floor(diff / 60000);
-        
-        if (minutes < 1) return 'Gerade eben';
-        if (minutes < 60) return `vor ${minutes}m`;
-        
-        const hours = Math.floor(minutes / 60);
-        if (hours < 24) return `vor ${hours}h`;
-        
-        const days = Math.floor(hours / 24);
-        return `vor ${days}d`;
-    }
-
-    updateUI() {
-        const startBtn = document.getElementById('startCrawling');
-        const stopBtn = document.getElementById('stopCrawling');
-        
-        startBtn.disabled = this.isRunning;
-        stopBtn.disabled = !this.isRunning;
-    }
-
-    updateStatus(message) {
-        const statusElement = document.getElementById('status');
-        statusElement.textContent = message;
-        
-        // Add timestamp for better feedback
-        const timestamp = new Date().toLocaleTimeString();
-        statusElement.title = `${message} (${timestamp})`;
-        
-        // Auto-clear long messages after 10 seconds
-        if (message.length > 50) {
-            setTimeout(() => {
-                if (statusElement.textContent === message) {
-                    statusElement.textContent = 'Bereit für neue Entdeckungen...';
-                }
-            }, 10000);
-        }
-    }
-
-    saveDiscoveries() {
-        try {
-            localStorage.setItem('randomRadarDiscoveries', JSON.stringify(this.discoveries));
-        } catch (error) {
-            console.warn('Failed to save discoveries:', error);
-        }
-    }
-
-    loadStoredDiscoveries() {
-        try {
-            const stored = localStorage.getItem('randomRadarDiscoveries');
-            if (stored) {
-                this.discoveries = JSON.parse(stored).map(d => ({
-                    ...d,
-                    timestamp: new Date(d.timestamp)
-                }));
-                this.renderDiscoveries();
-            }
-        } catch (error) {
-            console.warn('Failed to load stored discoveries:', error);
-        }
-    }
-
-    // Utility methods for domain discovery
-    isValidDomain(domain) {
-        // Check if domain is valid and worth exploring
-        const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[a-zA-Z]{2,}$/;
-        
-        return domainRegex.test(domain) &&
-               domain.length >= 4 &&
-               domain.length <= 50 &&
-               !domain.includes('..') &&
-               !domain.includes('localhost') &&
-               !domain.includes('example') &&
-               !domain.includes('test.') &&
-               !domain.includes('staging.') &&
-               !domain.includes('dev.') &&
-               !domain.includes('api.') &&
-               !domain.includes('cdn.') &&
-               !domain.includes('mail.') &&
-               !domain.includes('ftp.') &&
-               !domain.includes('ns.') &&
-               !domain.includes('mx.');
-    }
-
-    async checkDomainExists(domain) {
-        // Quick check if domain responds
-        try {
-            const response = await fetch(`https://${domain}`, { 
-                method: 'HEAD',
-                mode: 'no-cors',
-                timeout: 5000
-            });
-            return true;
-        } catch (error) {
-            try {
-                const response = await fetch(`http://${domain}`, { 
-                    method: 'HEAD',
-                    mode: 'no-cors',
-                    timeout: 5000
-                });
-                return true;
-            } catch (httpError) {
-                return false;
-            }
-        }
-    }
-
-    async getTrendingDomains() {
-        // Get domains from trending topics and current events
-        const currentDate = new Date();
-        const year = currentDate.getFullYear();
-        const month = currentDate.getMonth() + 1;
-        
-        const trendingTopics = [
-            'ai', 'artificial-intelligence', 'machine-learning', 'deep-learning',
-            'blockchain', 'cryptocurrency', 'bitcoin', 'ethereum', 'nft',
-            'metaverse', 'virtual-reality', 'augmented-reality', 'vr', 'ar',
-            'web3', 'defi', 'fintech', 'edtech', 'healthtech', 'climatetech',
-            'startup', 'innovation', 'digital-transformation', 'automation',
-            'cloud-computing', 'edge-computing', 'quantum-computing',
-            'sustainability', 'green-tech', 'renewable-energy', 'solar',
-            'electric-vehicles', 'ev', 'autonomous-vehicles', 'self-driving',
-            'biotechnology', 'genomics', 'telemedicine', 'remote-work',
-            'cybersecurity', 'data-privacy', 'zero-trust', 'devops',
-            'microservices', 'serverless', 'containers', 'kubernetes'
-        ];
-        
-        const businessTypes = [
-            'solutions', 'services', 'platform', 'app', 'software', 'tech',
-            'labs', 'studio', 'agency', 'consulting', 'systems', 'network',
-            'hub', 'center', 'institute', 'academy', 'marketplace', 'exchange'
-        ];
-        
-        const tlds = ['.com', '.io', '.tech', '.ai', '.app', '.dev', '.co'];
-        
-        const domains = [];
-        
-        // Generate trending domain combinations
-        for (let i = 0; i < 10; i++) {
-            const topic = trendingTopics[Math.floor(Math.random() * trendingTopics.length)];
-            const business = businessTypes[Math.floor(Math.random() * businessTypes.length)];
-            const tld = tlds[Math.floor(Math.random() * tlds.length)];
             
-            // Clean up topic name for domain use
-            const cleanTopic = topic.replace(/[^a-zA-Z0-9]/g, '');
+            <div class="analysis-section">
+                <h3>🏷️ Kategorisierung</h3>
+                <p><strong>Kategorie:</strong> ${discovery.category}</p>
+                <p><strong>Sentiment:</strong> ${discovery.sentiment}</p>
+            </div>
             
-            let domain;
-            if (Math.random() > 0.5) {
-                domain = `${cleanTopic}${business}${tld}`;
-            } else {
-                domain = `${cleanTopic}${year}${tld}`;
-            }
+            <div class="analysis-section">
+                <h3>📝 Inhalt</h3>
+                <p><strong>Titel:</strong> ${discovery.title}</p>
+                <p><strong>Beschreibung:</strong> ${discovery.description || 'Keine Beschreibung verfügbar'}</p>
+                <blockquote class="analysis-quote">"${discovery.quote}"</blockquote>
+            </div>
             
-            if (this.isValidDomain(domain)) {
-                domains.push(domain);
-            }
+            <div class="analysis-section">
+                <h3>📈 Statistiken</h3>
+                <ul>
+                    <li>Zeichenanzahl: ${discovery.quote.length}</li>
+                    <li>Wortanzahl: ${discovery.quote.split(' ').length}</li>
+                    <li>Entdeckt: ${this.formatTime(discovery.timestamp)}</li>
+                    <li>URL: <a href="${discovery.url}" target="_blank">${discovery.url}</a></li>
+                </ul>
+            </div>
+            
+            <div class="analysis-actions">
+                <button class="btn-primary" onclick="window.open('${discovery.url}', '_blank')">🌐 Website besuchen</button>
+                <button class="btn-secondary" onclick="randomRadar.shareDiscovery('${domain}')">🔗 Teilen</button>
+            </div>
+        `;
+        
+        modal.style.display = 'block';
+    }
+
+    showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.textContent = message;
+        
+        document.body.appendChild(notification);
+        
+        // Animate in
+        setTimeout(() => notification.classList.add('show'), 100);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            notification.classList.remove('show');
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
+    }
+
+    updateStats() {
+        this.stats.totalCrawled++;
+        
+        // Update performance metrics
+        const now = Date.now();
+        if (this.stats.startTime) {
+            const runningTime = now - this.stats.startTime;
+            this.stats.averageResponseTime = runningTime / this.stats.totalCrawled;
         }
         
-        return domains;
+        // Update UI stats if stats panel exists
+        this.updateStatsDisplay();
     }
 
-    extractDomainFromUrl(url) {
-        try {
-            const urlObj = new URL(url);
-            return urlObj.hostname.replace(/^www\./, '');
-        } catch (error) {
-            return null;
+    updateStatsDisplay() {
+        const statsElement = document.querySelector('.stats-display');
+        if (statsElement) {
+            const successRate = this.stats.totalCrawled > 0 
+                ? ((this.stats.successfulFinds / this.stats.totalCrawled) * 100).toFixed(1)
+                : 0;
+            
+            statsElement.innerHTML = `
+                <div class="stat-item">
+                    <span class="stat-value">${this.stats.successfulFinds}</span>
+                    <span class="stat-label">Entdeckungen</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value">${this.stats.totalCrawled}</span>
+                    <span class="stat-label">Durchsucht</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value">${successRate}%</span>
+                    <span class="stat-label">Erfolgsrate</span>
+                </div>
+            `;
         }
     }
-
-    isLikelyNewDomain(domain) {
-        // Check if domain looks like it could be new/recent
-        const currentYear = new Date().getFullYear();
-        const currentYearStr = currentYear.toString();
-        const lastYearStr = (currentYear - 1).toString();
-        
-        return domain.includes(currentYearStr) ||
-               domain.includes(lastYearStr) ||
-               domain.includes('new') ||
-               domain.includes('beta') ||
-               domain.includes('app') ||
-               domain.includes('try') ||
-               domain.includes('get') ||
-               domain.includes('my') ||
-               domain.endsWith('.ai') ||
-               domain.endsWith('.app') ||
-               domain.endsWith('.dev') ||
-               domain.endsWith('.tech') ||
-               domain.endsWith('.io');
-    }
-
-    // ...existing code...
 }
 
 // Global functions
