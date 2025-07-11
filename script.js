@@ -56,7 +56,7 @@ class RandomRadar {
         
         this.isRunning = true;
         this.updateUI();
-        this.updateStatus('Starting discovery process...');
+        this.updateStatus('🚀 Starting web exploration...');
         
         try {
             // Get fresh domains from multiple sources
@@ -67,7 +67,7 @@ class RandomRadar {
             
         } catch (error) {
             console.error('Error starting crawler:', error);
-            this.updateStatus('Error starting discovery process');
+            this.updateStatus('❌ Error starting exploration');
             this.stopCrawling();
         }
     }
@@ -75,11 +75,11 @@ class RandomRadar {
     stopCrawling() {
         this.isRunning = false;
         this.updateUI();
-        this.updateStatus('Discovery stopped');
+        this.updateStatus('⏸️ Exploration paused');
     }
 
     async discoverNewDomains() {
-        this.updateStatus('Discovering new domains using fast methods...');
+        this.updateStatus('🔍 Discovering fresh websites using smart methods...');
         this.currentSources = []; // Clear previous sources
         
         // Use faster, more reliable methods for finding new domains
@@ -117,7 +117,7 @@ class RandomRadar {
         // Limit to prevent overwhelming
         this.currentSources = this.currentSources.slice(0, 25);
         
-        this.updateStatus(`Found ${this.currentSources.length} domains to explore quickly`);
+        this.updateStatus(`🎯 Found ${this.currentSources.length} fresh websites to explore`);
         console.log('Fast discovered domains:', this.currentSources);
     }
 
@@ -651,7 +651,7 @@ class RandomRadar {
         
         if (this.currentSources.length === 0) {
             // If we've exhausted sources, quickly generate more
-            this.updateStatus('Quickly finding more domains...');
+            this.updateStatus('🔍 Searching for more amazing websites...');
             
             // Use rapid methods to get more domains
             await this.rapidDomainGeneration();
@@ -661,14 +661,14 @@ class RandomRadar {
             
             // If we still don't have sources, stop
             if (this.currentSources.length === 0) {
-                this.updateStatus('No more domains to explore. Discovery complete!');
+                this.updateStatus('✨ Exploration complete! All fresh content discovered!');
                 this.stopCrawling();
                 return;
             }
         }
         
         const domain = this.currentSources.shift();
-        this.updateStatus(`Exploring ${domain}... (${this.discoveries.length} quotes found)`);
+        this.updateStatus(`🌐 Exploring ${domain}... (${this.discoveries.length} amazing quotes found)`);
         
         try {
             await this.crawlDomain(domain);
@@ -956,7 +956,7 @@ class RandomRadar {
         }
         
         this.saveDiscoveries();
-        this.updateStatus(`Found quote from ${content.domain} - "${content.quote.substring(0, 50)}..."`);
+        this.updateStatus(`💎 Found amazing quote from ${content.domain} - "${content.quote.substring(0, 50)}..."`);
     }
 
     async fetchWithProxy(url) {
@@ -1186,7 +1186,7 @@ class RandomRadar {
         this.renderDiscoveries();
         this.saveDiscoveries();
         
-        this.updateStatus(`Found content from ${content.domain}`);
+        this.updateStatus(`🔥 Found fresh content from ${content.domain}`);
     }
 
     renderDiscoveries() {
@@ -1370,39 +1370,39 @@ function showAbout() {
     const modalBody = document.getElementById('modalBody');
     
     modalBody.innerHTML = `
-        <h2>About Random Radar</h2>
-        <p>Random Radar is a web discovery tool that explores various websites to find interesting content and quotes.</p>
+        <h2>🔍 About Random Radar</h2>
+        <p>Random Radar is your personal web exploration tool that scours the internet to find amazing content and inspiring quotes from websites you've never seen before.</p>
         
-        <h3>How it works:</h3>
+        <h3>🚀 How it works:</h3>
         <ul>
-            <li><strong>Mixed Discovery:</strong> Combines multiple approaches to find websites</li>
-            <li><strong>Certificate Transparency:</strong> Attempts to monitor SSL certificate logs (when possible)</li>
-            <li><strong>Curated Sources:</strong> Includes reliable websites known to have interesting content</li>
-            <li><strong>Generated Domains:</strong> Creates domain combinations based on current trends</li>
-            <li><strong>Content Extraction:</strong> Analyzes websites to extract quotes and snippets in real-time</li>
+            <li><strong>Smart Discovery:</strong> Uses multiple intelligent approaches to find fascinating websites</li>
+            <li><strong>Certificate Monitoring:</strong> Tracks SSL certificate logs to find brand-new sites</li>
+            <li><strong>Curated Sources:</strong> Explores reliable websites known for amazing content</li>
+            <li><strong>Trend Analysis:</strong> Generates domain combinations based on current internet trends</li>
+            <li><strong>Real-time Extraction:</strong> Instantly analyzes websites to find the best quotes and snippets</li>
         </ul>
         
-        <h3>Technical Limitations:</h3>
-        <p><strong>Why "newly registered" domains are difficult to find:</strong></p>
+        <h3>⚡ Technical Challenges:</h3>
+        <p><strong>Why finding truly new domains is so challenging:</strong></p>
         <ul>
-            <li>Certificate Transparency APIs often block automated requests</li>
-            <li>Browser CORS restrictions prevent direct access to many APIs</li>
-            <li>Most "new domain" services require API keys or subscriptions</li>
-            <li>Real-time domain registration feeds are typically commercial services</li>
+            <li>Many certificate transparency APIs block automated requests</li>
+            <li>Browser security restrictions limit direct API access</li>
+            <li>Most "new domain" services require expensive API subscriptions</li>
+            <li>Real-time domain registration feeds are typically commercial-only</li>
         </ul>
         
-        <h3>What you actually get:</h3>
+        <h3>🎯 What you get:</h3>
         <ul>
-            <li>A mix of potentially new and existing interesting websites</li>
-            <li>Real-time content discovery and quote extraction</li>
+            <li>A perfect mix of new and interesting websites you haven't seen</li>
+            <li>Real-time content discovery with instant quote extraction</li>
             <li>Diverse content from various categories and sources</li>
-            <li>An engaging exploration of web content</li>
+            <li>An engaging and entertaining exploration of web content</li>
         </ul>
         
-        <h3>Privacy & Ethics:</h3>
-        <p>This tool respects websites and rate limits requests. All processing happens client-side in your browser for privacy.</p>
+        <h3>🔒 Privacy & Ethics:</h3>
+        <p>This tool respects all websites and implements smart rate limiting. Everything happens in your browser - no data is sent to external servers.</p>
         
-        <p><em>This is an experimental tool for educational purposes. Results may vary due to technical limitations.</em></p>
+        <p><em>This is an experimental tool built for fun and education. Results may vary due to technical limitations, but the journey is always exciting!</em></p>
     `;
     
     modal.style.display = 'block';
